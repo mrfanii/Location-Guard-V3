@@ -200,7 +200,7 @@ require=(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c=
     }
 
     Browser.capabilities.supportedIconSizes = function() {
-      return [16, 19, 32, 38, 48, 128];
+      return [16, 19, 32, 38, 128];
     }
 
 

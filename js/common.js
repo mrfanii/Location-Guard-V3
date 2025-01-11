@@ -347,7 +347,7 @@ Browser.capabilities.permanentIcon = function() {
 }
 
 Browser.capabilities.supportedIconSizes = function() {
-	return [16, 19, 32, 38, 48, 128];
+	return [16, 19, 32, 38, 128];
 }
 
 

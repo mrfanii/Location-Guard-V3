@@ -4,7 +4,6 @@
   "version": "3.0.0",
   "action": {
     "default_icon": {
-      "48": "images/pin_48.png",
       "128": "images/pin_128.png"
     },
     "default_popup": "popup.html",
@@ -15,7 +14,6 @@
   },
   "description": "Hide your geographic location from websites.",
   "icons": {
-    "48": "images/pin_48.png",
     "128": "images/pin_128.png"
   },
   "options_ui": {
