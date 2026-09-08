@@ -783,7 +783,7 @@ if(Browser.testing) {
 	Browser.rpc.register('nestedTestMain', async function(tabId) {
 		Browser.log("in nestedTestMain, call from ", tabId, "calling back nestedTestTab");
 
-		const res = Browser.rpc.call(tabId, 'nestedTestTab', []);
+		const res = await Browser.rpc.call(tabId, 'nestedTestTab', []);
 		Browser.log("got from nestedTestTab", res, "adding '_foo' and sending back");
 		return res + '_foo';
 	});
