@@ -1447,6 +1447,15 @@ var Geocoder = L.Control.extend({
   },
 
   highlight: function (text, focus) {
+    text = String(text).replace(/[&<>"']/g, function (character) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[character];
+    });
     var r = RegExp('(' + escapeRegExp(focus) + ')', 'gi');
     return text.replace(r, '<strong>$1</strong>');
   },
