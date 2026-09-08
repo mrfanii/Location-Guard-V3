@@ -194,10 +194,10 @@ async function addNoise(position) {
 			position.coords.accuracy += Math.round(pl.alphaDeltaAccuracy(epsilon, .9));
 
 		// don't know how to add noise to those, so we set to null (they're most likely null anyway)
-		position.altitude = null;
-		position.altitudeAccuracy = null;
-		position.heading = null;
-		position.speed = null;
+		position.coords.altitude = null;
+		position.coords.altitudeAccuracy = null;
+		position.coords.heading = null;
+		position.coords.speed = null;
 
 		// cache
 		st.cachedPos[level] = { epoch: (new Date).getTime(), position: position };
