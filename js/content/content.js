@@ -251,32 +251,50 @@ module.exports = function(PostRPC) {
 
 		const watchPosition = navigator.geolocation.watchPosition;
 		const handlers = {};
+		let nextHandler = 1;
 		navigator.geolocation.watchPosition = function(cb1, cb2, options) {
 			// We need to return a handler synchronously, but decide whether we'll use the real watchPosition or not
 			// asynchronously. So we create our own handler, and we'll associate it with the real one later.
-			const handler = Math.floor(Math.random()*10000);
+			const handler = nextHandler++;
+			handlers[handler] = { nativeId: null };
 
 			(async () => {
-				if(await getPostRPC().call('watchAllowed', [true]))
+				if(await getPostRPC().call('watchAllowed', [true])) {
 					// We're allowed to call the real watchPosition (note: remember the handler)
-					handlers[handler] = watchPosition.apply(navigator.geolocation, [
+					if(!(handler in handlers)) return;
+
+					const nativeId = watchPosition.apply(navigator.geolocation, [
 						position => callCb(cb1, position, true),	// ignore the call if privacy protection
 						error    => callCb(cb2, error, true),		// becomes active later!
 						options
 					]);
-				else
+					handlers[handler].nativeId = nativeId;
+				} else {
 					// Not allowed, we don't install a real watch, just return the position once
-					this.getCurrentPosition(cb1, cb2, options);
+					if(!(handler in handlers)) return;
+
+					navigator.geolocation.getCurrentPosition(
+						position => {
+							if(handler in handlers && cb1) cb1(position);
+						},
+						error => {
+							if(handler in handlers && cb2) cb2(error);
+						},
+						options
+					);
+				}
 			})();
 			return handler;
 		};
 
 		const clearWatch = navigator.geolocation.clearWatch;
 		navigator.geolocation.clearWatch = function (handler) {
-			if(handler in handlers) {
-				clearWatch.apply(navigator.geolocation, [handlers[handler]]);
-				delete handlers[handler];
-			}
+			if(!(handler in handlers)) return;
+
+			const nativeId = handlers[handler].nativeId;
+			delete handlers[handler];
+			if(nativeId != null)
+				clearWatch.apply(navigator.geolocation, [nativeId]);
 		};
 	}
 

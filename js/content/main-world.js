@@ -64,19 +64,34 @@
   const nativeWatchPosition = navigator.geolocation.watchPosition;
   const nativeClearWatch = navigator.geolocation.clearWatch;
   const handlers = {};
+  let nextHandler = 1;
 
   navigator.geolocation.watchPosition = function (success, error, options) {
-    const handler = Math.floor(Math.random() * 10000);
+    const handler = nextHandler++;
+    handlers[handler] = { nativeId: null };
 
     (async () => {
       if (await getRPC().call('watchAllowed', [true])) {
-        handlers[handler] = nativeWatchPosition.apply(navigator.geolocation, [
+        if (!(handler in handlers)) return;
+
+        const nativeId = nativeWatchPosition.apply(navigator.geolocation, [
           (position) => callCallback(success, position, true),
           (watchError) => callCallback(error, watchError, true),
           options,
         ]);
+        handlers[handler].nativeId = nativeId;
       } else {
-        this.getCurrentPosition(success, error, options);
+        if (!(handler in handlers)) return;
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            if (handler in handlers && success) success(position);
+          },
+          (positionError) => {
+            if (handler in handlers && error) error(positionError);
+          },
+          options,
+        );
       }
     })();
 
@@ -84,9 +99,10 @@
   };
 
   navigator.geolocation.clearWatch = function (handler) {
-    if (handler in handlers) {
-      nativeClearWatch.call(navigator.geolocation, handlers[handler]);
-      delete handlers[handler];
-    }
+    if (!(handler in handlers)) return;
+
+    const nativeId = handlers[handler].nativeId;
+    delete handlers[handler];
+    if (nativeId != null) nativeClearWatch.call(navigator.geolocation, nativeId);
   };
 })();
