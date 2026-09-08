@@ -45,29 +45,6 @@ require=(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c=
         browser.tabs.remove(tabId);
       });
 
-      // Workaroud some Firefox page-action 'bugs' (different behaviour than chrome)
-      // - the icon is _not_ hidden automatically on refresh
-      // - [android-only] the icon is _not_ hidden when navigating away from a page
-      // - the icon _is_ hidden on history.pushstate (eg on google maps when
-      //   clicking on some label) although the same page remains loaded
-      //
-      if(!Browser.capabilities.needsPAManualHide()) {
-        Browser.gui.iconShown = {};
-
-        browser.tabs.onUpdated.addListener(function(tabId, info) {
-          // minimize overhead: only act if we have shown an icon in this tab before
-          if(!Browser.gui.iconShown[tabId]) return;
-
-          if(info.status == 'loading')
-            // tab is loading, make sure the icon is hidden
-            browser.pageAction.hide(tabId);
-          else if(info.status == 'complete')
-            // this fires after history.pushState. Call refreshIcon to reset
-            // the icon if it was incorrectly hidden
-            Browser.gui.refreshIcon(tabId);
-        });
-      }
-
       // set default icon (for browser action)
       //
       Browser.gui.refreshAllIcons();
@@ -163,6 +140,43 @@ require=(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c=
       });
     };
 
+//////////////////// gui ///////////////////////////
+//
+// Manifest V3 exposes toolbar controls through browser.action.
+//
+    Browser.gui._icons = function(privateMode) {
+      var sizes = Browser.capabilities.supportedIconSizes();
+      var ret = {};
+      for(var i = 0; i < sizes.length; i++)
+        ret[sizes[i]] = '/images/pin_' + (privateMode ? '' : 'disabled_') + sizes[i] + '.png';
+      return ret;
+    }
+
+    Browser.gui.refreshIcon = async function(tabId) {
+      const info = await Util.getIconInfo(tabId);
+      var target = tabId == null ? {} : { tabId: tabId };
+
+      await browser.action.setTitle(Object.assign({ title: info.title }, target));
+      await browser.action.setBadgeText(Object.assign({ text: (info.apiCalls || '').toString() }, target));
+      await browser.action.setBadgeBackgroundColor(Object.assign({ color: '#b12222' }, target));
+      await browser.action.setPopup(Object.assign({
+        popup: 'popup.html' + (tabId != null ? '?tabId=' + tabId : '')
+      }, target));
+      await browser.action.setIcon(Object.assign({ path: Browser.gui._icons(info.private) }, target));
+    };
+
+    Browser.gui.refreshAllIcons = async function() {
+      const tabs = await new Promise(resolve => browser.tabs.query({}, resolve));
+      tabs.push({ id: null });
+
+      for(var i = 0; i < tabs.length; i++)
+        await Browser.gui.refreshIcon(tabs[i].id);
+    };
+
+    Browser.gui.showPage = function(name) {
+      browser.tabs.create({ url: browser.runtime.getURL(name) });
+    };
+
 //////////////////// capabilities ///////////////////////////
 //
 //
@@ -195,8 +209,7 @@ require=(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c=
     }
 
     Browser.capabilities.permanentIcon = function() {
-      // we use browserAction in browsers where pageAction is not properly supported (eg Chrome)
-      return !!browser.runtime.getManifest().browser_action;
+      return !!browser.runtime.getManifest().action;
     }
 
     Browser.capabilities.supportedIconSizes = function() {
@@ -777,4 +790,3 @@ if(Browser.testing) {
 }
 
 },{"./common/browser":"/src/js/common/browser.js","./common/util":"/src/js/common/util.js"}]},{},[1]);
-

@@ -45,29 +45,6 @@ Browser._main_script = function() {
 		browser.tabs.remove(tabId);
 	});
 
-	// Workaroud some Firefox page-action 'bugs' (different behaviour than chrome)
-	// - the icon is _not_ hidden automatically on refresh
-	// - [android-only] the icon is _not_ hidden when navigating away from a page
-	// - the icon _is_ hidden on history.pushstate (eg on google maps when
-	//   clicking on some label) although the same page remains loaded
-	//
-	if(!Browser.capabilities.needsPAManualHide()) {
-		Browser.gui.iconShown = {};
-
-		browser.tabs.onUpdated.addListener(function(tabId, info) {
-			// minimize overhead: only act if we have shown an icon in this tab before
-			if(!Browser.gui.iconShown[tabId]) return;
-
-			if(info.status == 'loading')
-				// tab is loading, make sure the icon is hidden
-				browser.pageAction.hide(tabId);
-			else if(info.status == 'complete')
-				// this fires after history.pushState. Call refreshIcon to reset
-				// the icon if it was incorrectly hidden
-				Browser.gui.refreshIcon(tabId);
-		});
-	}
-
 	// set default icon (for browser action)
 	//
 	Browser.gui.refreshAllIcons();
@@ -169,7 +146,7 @@ Browser.storage.clear = async function() {
 //
 Browser.gui.refreshIcon = async function(tabId) {
 	// delegate the call to the 'main' script if:
-	// - we're in 'content': browser.pageAction/browserAction is not available there
+	// - we're in 'content': browser.action is not available there
 	// - we use the FF pageAction workaround: we need to update Browser.gui.iconShown in 'main'
 	//
 	if(Browser._script == 'content' ||
@@ -180,70 +157,27 @@ Browser.gui.refreshIcon = async function(tabId) {
 	}
 
 	const info = await Util.getIconInfo(tabId);
-	if(Browser.capabilities.permanentIcon())
-		await Browser.gui._refreshBrowserAction(tabId, info);
-	else
-		await Browser.gui._refreshPageAction(tabId, info);
+	await Browser.gui._refreshAction(tabId, info);
 };
 
-Browser.gui._icons = function(private) {
+Browser.gui._icons = function(privateMode) {
 	var sizes = Browser.capabilities.supportedIconSizes();
 	var ret = {};
 	for(var i = 0; i < sizes.length; i++)
-		ret[sizes[i]] = '/images/pin_' + (private ? '' : 'disabled_') + sizes[i] + '.png';
+		ret[sizes[i]] = '/images/pin_' + (privateMode ? '' : 'disabled_') + sizes[i] + '.png';
 	return ret;
 }
 
-Browser.gui._refreshPageAction = function(tabId, info) {
-	if(info.hidden || info.apiCalls == 0) {
-		browser.pageAction.hide(tabId);
-		return;
-	}
+Browser.gui._refreshAction = async function(tabId, info) {
+	var target = tabId == null ? {} : { tabId: tabId };
 
-	return new Promise(resolve => {
-		if(Browser.gui.iconShown)
-			Browser.gui.iconShown[tabId] = 1;
-
-		browser.pageAction.setPopup({
-			tabId: tabId,
-			popup: "popup.html?tabId=" + tabId		// pass tabId in the url
-		});
-		browser.pageAction.show(tabId);
-
-		browser.pageAction.setTitle({
-			tabId: tabId,
-			title: info.title
-		});
-		browser.pageAction.setIcon({
-			tabId: tabId,
-			path: Browser.gui._icons(info.private)
-		}, resolve);		// setIcon is the only pageAction.set* method with a callback
-	});
-}
-
-Browser.gui._refreshBrowserAction = function(tabId, info) {
-	return new Promise(resolve => {
-		browser.browserAction.setTitle({
-			tabId: tabId,
-			title: info.title
-		});
-		browser.browserAction.setBadgeText({
-			tabId: tabId,
-			text: (info.apiCalls || "").toString()
-		});
-		browser.browserAction.setBadgeBackgroundColor({
-			tabId: tabId,
-			color: "#b12222"
-		});
-		browser.browserAction.setPopup({
-			tabId: tabId,
-			popup: "popup.html" + (tabId ? "?tabId="+tabId : "")	// pass tabId in the url
-		});
-		browser.browserAction.setIcon({
-			tabId: tabId,
-			path: Browser.gui._icons(info.private)
-		}, resolve);		// setIcon is the only browserAction.set* method with a callback
-	});
+	await browser.action.setTitle(Object.assign({ title: info.title }, target));
+	await browser.action.setBadgeText(Object.assign({ text: (info.apiCalls || "").toString() }, target));
+	await browser.action.setBadgeBackgroundColor(Object.assign({ color: "#b12222" }, target));
+	await browser.action.setPopup(Object.assign({
+		popup: "popup.html" + (tabId != null ? "?tabId=" + tabId : "")
+	}, target));
+	await browser.action.setIcon(Object.assign({ path: Browser.gui._icons(info.private) }, target));
 }
 
 Browser.gui.refreshAllIcons = async function() {
@@ -342,8 +276,7 @@ Browser.capabilities.iframeGeoFromOwnDomain = function() {
 }
 
 Browser.capabilities.permanentIcon = function() {
-	// we use browserAction in browsers where pageAction is not properly supported (eg Chrome)
-	return !!browser.runtime.getManifest().browser_action;
+	return !!browser.runtime.getManifest().action;
 }
 
 Browser.capabilities.supportedIconSizes = function() {
