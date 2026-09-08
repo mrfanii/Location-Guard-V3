@@ -148,9 +148,14 @@ async function addNoise(position) {
 		position.coords.heading = null;
 		position.coords.speed = null;
 
-		// cache
-		st.cachedPos[level] = { epoch: (new Date).getTime(), position: position };
-		await Browser.storage.set(st);
+		// Serialize cache creation in the background so concurrent calls reuse one noisy position
+		// and cannot overwrite settings changed by the popup/options page.
+		position = await Browser.rpc.call(null, 'cachePosition', [
+			level,
+			{ epoch: (new Date).getTime(), position: position },
+			st.updateAccuracy,
+			st.levels[level].radius
+		]);
 
 		Browser.log('noisy coords', position.coords);
 	}

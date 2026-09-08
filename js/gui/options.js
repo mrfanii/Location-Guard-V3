@@ -57,54 +57,26 @@ function Slider(opt) {
 }
 
 async function saveOptions() {
-	const st = await Browser.storage.get();
-	st.defaultLevel = $('#defaultLevel').val();
-	st.paused = $("#paused").prop('checked');
-	st.hideIcon = $("#hideIcon").prop('checked');
-
-	var updateAccuracy = $("#updateAccuracy").prop('checked');
-	if(st.updateAccuracy != updateAccuracy) {
-		// update accuracy of cached positions to reflect the change
-		for(var level in st.cachedPos) {
-			var epsilon = st.epsilon / st.levels[level].radius;
-			var pl = new PlanarLaplace();
-
-			st.cachedPos[level].position.coords.accuracy +=									// add/remove the .9 accuracy
-				(updateAccuracy ? 1 : -1) * Math.round(pl.alphaDeltaAccuracy(epsilon, .9));
-		}
-
-		st.updateAccuracy = updateAccuracy;
-	}
-
-	await Browser.storage.set(st);
+	await Browser.rpc.call(null, 'saveOptions', [{
+		defaultLevel: $('#defaultLevel').val(),
+		paused: $("#paused").prop('checked'),
+		hideIcon: $("#hideIcon").prop('checked'),
+		updateAccuracy: $("#updateAccuracy").prop('checked')
+	}]);
 	Browser.gui.refreshAllIcons();
 }
 
 async function saveFixedPosNoAPI() {
-	const st = await Browser.storage.get();
-	st.fixedPosNoAPI = $("#fixedPosNoAPI").prop('checked');
-
-	await Browser.storage.set(st);
+	await Browser.rpc.call(null, 'setFixedPosNoAPI', [$("#fixedPosNoAPI").prop('checked')]);
 }
 
 async function saveLevel() {
-	const st = await Browser.storage.get();
 	var radius = sliderRadius.value;
 	var ct = sliderCacheTime.value;
 	var cacheTime = ct <= 59 ? ct : 60 * (ct-59);
 
 	updateRadius(radius, true);
-
-	// delete cache for that level if radius changes
-	if(st.levels[activeLevel].radius != radius)
-		delete st.cachedPos[activeLevel];
-
-	st.levels[activeLevel] = {
-		radius: radius,
-		cacheTime: cacheTime
-	};
-
-	await Browser.storage.set(st);
+	await Browser.rpc.call(null, 'saveLevel', [activeLevel, radius, cacheTime]);
 }
 
 function initLevelMap() {
@@ -267,14 +239,13 @@ async function initFixedPosMap() {
 }
 
 async function saveFixedPos(latlng) {
-	const st = await Browser.storage.get();
 	var wrapped = latlng.wrap();			// force within normal range
-	st.fixedPos = { latitude: wrapped.lat, longitude: wrapped.lng };
+	var position = { latitude: wrapped.lat, longitude: wrapped.lng };
 
 	fixedPosMap.marker.setLatLng(latlng);
 
-	Browser.log('saving st', st);
-	await Browser.storage.set(st);
+	Browser.log('saving fixed position', position);
+	await Browser.rpc.call(null, 'saveFixedPos', [position]);
 }
 
 async function showLevelInfo() {
@@ -446,16 +417,14 @@ function showCurrentPosition() {
 
 async function restoreDefaults() {
 	if(window.confirm('Are you sure you want to restore the default options?')) {
-		await Browser.storage.clear();
+		await Browser.rpc.call(null, 'restoreDefaults', []);
 		await Browser.gui.refreshAllIcons();
 		location.reload();
 	}
 }
 
 async function deleteCache() {
-	const st = await Browser.storage.get();
-	st.cachedPos = {};
-	await Browser.storage.set(st);
+	await Browser.rpc.call(null, 'clearCache', []);
 	window.alert('Location cache was deleted');
 }
 

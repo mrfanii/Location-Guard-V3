@@ -35,17 +35,13 @@ async function doAction() {
 			break;
 
 		case 'hideIcon':
-			var st = await Browser.storage.get();
-			st.hideIcon = true;
-			await Browser.storage.set(st);
+			await Browser.rpc.call(null, 'setHideIcon', [true]);
 			await Browser.gui.refreshAllIcons();
 			Browser.gui.closePopup();
 			break;
 
 		case 'pause':
-			var st = await Browser.storage.get();
-			st.paused = !st.paused;
-			await Browser.storage.set(st);
+			await Browser.rpc.call(null, 'togglePaused', []);
 			await Browser.gui.refreshAllIcons();
 			Browser.gui.closePopup();
 			break;
@@ -57,15 +53,9 @@ async function doAction() {
 		default:	// set level
 			if(!url) throw "no url";				// just to be sure
 
-			var st = await Browser.storage.get();
 			var domain = Util.extractDomain(url);
 			var level = action;
-			if(level == st.defaultLevel)
-				delete st.domainLevel[domain];
-			else
-				st.domainLevel[domain] = level;
-
-			await Browser.storage.set(st);
+			await Browser.rpc.call(null, 'setDomainLevel', [domain, level]);
 			await Browser.gui.refreshAllIcons();
 			Browser.gui.closePopup();
 			break;

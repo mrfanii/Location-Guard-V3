@@ -117,8 +117,9 @@ Browser.storage.get = async function() {
 
 			// default values
 			if(!st) {
-				st = Browser.storage._default;
-				Browser.storage.set(st);
+				st = JSON.parse(JSON.stringify(Browser.storage._default));
+				Browser.storage.set(st).then(function() { resolve(st); });
+				return;
 			}
 			resolve(st);
 		});
