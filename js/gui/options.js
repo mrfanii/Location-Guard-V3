@@ -27,9 +27,6 @@ var currentPos = {
 };
 
 Browser.init('options');
-(async function() {
-	epsilon = (await Browser.storage.get()).epsilon;
-}());
 
 
 // slider wrapper class, cause sGlide interface sucks
@@ -399,6 +396,9 @@ function initPages() {
 			$('#updateAccuracy').prop('checked', st.updateAccuracy).checkboxradio("refresh");
 
 		} else if (page == "levels") {
+			const st = await Browser.storage.get();
+			epsilon = st.epsilon;
+
 			sliderRadius = new Slider({
 				id: "setRadius",
 				min: 40,
@@ -420,13 +420,13 @@ function initPages() {
 			});
 
 			initLevelMap();
-			showLevelInfo();
+			await showLevelInfo();
 
 		} else if (page == "fixedPos") {
 			const st = await Browser.storage.get();
 			$('#fixedPosNoAPI').prop('checked', st.fixedPosNoAPI).checkboxradio("refresh");
 
-			initFixedPosMap();
+			await initFixedPosMap();
 		}
 	});
 }
