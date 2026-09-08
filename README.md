@@ -114,9 +114,15 @@ Location Guard takes your privacy seriously! First, the extension itself has no
 "special permission" to access your location, it can obtain it only when a
 website asks for it and only if you allow access in the permission dialog.
 
-Location Guard runs locally in your browser and _sends no information_
-whatsoever to the network. It only communicates your fake location to the
-website that asks for it.
+Location Guard's protection logic runs locally and does not send your detected
+location to a Location Guard server. A website requesting geolocation receives
+the protected location selected by the extension.
+
+The options and demo maps load map tiles from OpenStreetMap, and address
+searches use OpenRouteService. Opening a map around your current location can
+therefore reveal the viewed map area to those providers through the requested
+tile coordinates. Avoid the "current location" map control if you do not want
+to make those requests.
 
 Location Guard also never stores your real location. The _fake_ location is
 cached for a small period of time; if a website asks for your location during

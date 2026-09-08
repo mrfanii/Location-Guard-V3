@@ -129,8 +129,13 @@ issue.
 					permission" to access your location, it can obtain it only when a website asks for it and only if
 					you allow access in the permission dialog.</p>
 
-					<p>Location Guard runs locally in your browser and <i>sends no information</i> whatsoever to the
-					network. It only communicates your fake location to the website that asks for it.</p>
+					<p>Location Guard's protection logic runs locally and does not send your detected location to a
+					Location Guard server. A website requesting geolocation receives the protected location selected
+					by the extension.</p>
+
+					<p>The options and demo maps load tiles from OpenStreetMap, and address searches use
+					OpenRouteService. Opening a map around your current location can reveal the viewed map area to
+					those providers through the requested tile coordinates.</p>
 
 					<p>Location Guard also never stores your real location. The <i>fake</i> location is cached for a
 					small period of time; if a website asks for your location during this time the cached fake location
