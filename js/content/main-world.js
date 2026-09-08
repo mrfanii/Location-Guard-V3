@@ -52,57 +52,60 @@
     return rpc;
   }
 
-  async function callCallback(callback, position, checkAllowed) {
-    if (callback && (!checkAllowed || (await getRPC().call('watchAllowed', [false])))) callback(position);
+  async function protectedGetCurrentPosition(success, error, options) {
+    const result = await getRPC().call('getNoisyPosition', [options]);
+    const callback = result.success ? success : error;
+    if (callback) callback(result.position);
   }
 
-  navigator.geolocation.getCurrentPosition = async function (success, error, options) {
-    const result = await getRPC().call('getNoisyPosition', [options]);
-    callCallback(result.success ? success : error, result.position, false);
-  };
-
-  const nativeWatchPosition = navigator.geolocation.watchPosition;
-  const nativeClearWatch = navigator.geolocation.clearWatch;
+  const schedule = window.setTimeout.bind(window);
+  const cancelSchedule = window.clearTimeout.bind(window);
   const handlers = {};
   let nextHandler = 1;
 
-  navigator.geolocation.watchPosition = function (success, error, options) {
-    const handler = nextHandler++;
-    handlers[handler] = { nativeId: null };
-
-    (async () => {
-      if (await getRPC().call('watchAllowed', [true])) {
-        if (!(handler in handlers)) return;
-
-        const nativeId = nativeWatchPosition.apply(navigator.geolocation, [
-          (position) => callCallback(success, position, true),
-          (watchError) => callCallback(error, watchError, true),
-          options,
-        ]);
-        handlers[handler].nativeId = nativeId;
-      } else {
-        if (!(handler in handlers)) return;
-
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            if (handler in handlers && success) success(position);
-          },
-          (positionError) => {
-            if (handler in handlers && error) error(positionError);
-          },
-          options,
-        );
-      }
-    })();
-
-    return handler;
-  };
-
-  navigator.geolocation.clearWatch = function (handler) {
+  function requestWatchPosition(handler, success, error, options) {
     if (!(handler in handlers)) return;
 
-    const nativeId = handlers[handler].nativeId;
+    protectedGetCurrentPosition(
+      (position) => {
+        if (!(handler in handlers)) return;
+        handlers[handler].timer = schedule(() => requestWatchPosition(handler, success, error, options), 1000);
+        if (success) success(position);
+      },
+      (positionError) => {
+        if (!(handler in handlers)) return;
+        handlers[handler].timer = schedule(() => requestWatchPosition(handler, success, error, options), 1000);
+        if (error) error(positionError);
+      },
+      options,
+    );
+  }
+
+  function protectedWatchPosition(success, error, options) {
+    const handler = nextHandler++;
+    handlers[handler] = { timer: null };
+    requestWatchPosition(handler, success, error, options);
+    return handler;
+  }
+
+  function protectedClearWatch(handler) {
+    if (!(handler in handlers)) return;
+
+    const timer = handlers[handler].timer;
     delete handlers[handler];
-    if (nativeId != null) nativeClearWatch.call(navigator.geolocation, nativeId);
+    if (timer != null) cancelSchedule(timer);
+  }
+
+  const protectedMethods = {
+    getCurrentPosition: protectedGetCurrentPosition,
+    watchPosition: protectedWatchPosition,
+    clearWatch: protectedClearWatch,
   };
+  const geolocationPrototype = Object.getPrototypeOf(navigator.geolocation);
+
+  Object.keys(protectedMethods).forEach((name) => {
+    const descriptor = { value: protectedMethods[name], configurable: true, writable: true };
+    Object.defineProperty(geolocationPrototype, name, descriptor);
+    Object.defineProperty(navigator.geolocation, name, descriptor);
+  });
 })();

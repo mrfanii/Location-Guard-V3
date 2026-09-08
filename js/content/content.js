@@ -55,20 +55,6 @@ rpc.register('getNoisyPosition', async function(options) {
 
 	return await getNoisyPosition(options);
 });
-rpc.register('watchAllowed', async function(firstCall) {
-	// Returns true if using the real watch is allowed. Only if paused or level == 'real'.
-	// Also don't allow in iframes (to simplify the code).
-	const st = await Browser.storage.get();
-	var level = st.domainLevel[Util.extractDomain(myUrl)] || st.defaultLevel;
-	var allowed = !inFrame && (st.paused || level == 'real');
-
-	if(allowed && !firstCall) {
-		apiCalls++;
-		Browser.gui.refreshIcon('self');
-	}
-	return allowed;
-});
-
 // gets the options passed to the fake navigator.geolocation.getCurrentPosition.
 // Either returns fixed pos directly, or calls the real one, then calls addNoise.
 //
@@ -233,69 +219,68 @@ module.exports = function(PostRPC) {
 				prpc = new PostRPC('page-content', window, window, window.origin);	// This PostRPC is created by the injected code!
 			return prpc;
 		}
-		async function callCb(cb, pos, checkAllowed) {
-			if(cb && (!checkAllowed || await getPostRPC().call('watchAllowed', [false])))
-				cb(pos);
-		}
-
 		// We replace geolocation methods with our own.
 		// getCurrentPosition will be called by the content script (not by the page)
 		// so we dont need to keep it at all.
 
-		navigator.geolocation.getCurrentPosition = async function(cb1, cb2, options) {
+		async function protectedGetCurrentPosition(cb1, cb2, options) {
 			// call getNoisyPosition on the content-script
 			// call cb1 on success, cb2 on failure
 			const res = await getPostRPC().call('getNoisyPosition', [options]);
-			callCb(res.success ? cb1 : cb2, res.position, false);
-		};
+			const callback = res.success ? cb1 : cb2;
+			if(callback) callback(res.position);
+		}
 
-		const watchPosition = navigator.geolocation.watchPosition;
+		const schedule = window.setTimeout.bind(window);
+		const cancelSchedule = window.clearTimeout.bind(window);
 		const handlers = {};
 		let nextHandler = 1;
-		navigator.geolocation.watchPosition = function(cb1, cb2, options) {
-			// We need to return a handler synchronously, but decide whether we'll use the real watchPosition or not
-			// asynchronously. So we create our own handler, and we'll associate it with the real one later.
-			const handler = nextHandler++;
-			handlers[handler] = { nativeId: null };
 
-			(async () => {
-				if(await getPostRPC().call('watchAllowed', [true])) {
-					// We're allowed to call the real watchPosition (note: remember the handler)
-					if(!(handler in handlers)) return;
-
-					const nativeId = watchPosition.apply(navigator.geolocation, [
-						position => callCb(cb1, position, true),	// ignore the call if privacy protection
-						error    => callCb(cb2, error, true),		// becomes active later!
-						options
-					]);
-					handlers[handler].nativeId = nativeId;
-				} else {
-					// Not allowed, we don't install a real watch, just return the position once
-					if(!(handler in handlers)) return;
-
-					navigator.geolocation.getCurrentPosition(
-						position => {
-							if(handler in handlers && cb1) cb1(position);
-						},
-						error => {
-							if(handler in handlers && cb2) cb2(error);
-						},
-						options
-					);
-				}
-			})();
-			return handler;
-		};
-
-		const clearWatch = navigator.geolocation.clearWatch;
-		navigator.geolocation.clearWatch = function (handler) {
+		function requestWatchPosition(handler, cb1, cb2, options) {
 			if(!(handler in handlers)) return;
 
-			const nativeId = handlers[handler].nativeId;
+			protectedGetCurrentPosition(
+				position => {
+					if(!(handler in handlers)) return;
+					handlers[handler].timer = schedule(() => requestWatchPosition(handler, cb1, cb2, options), 1000);
+					if(cb1) cb1(position);
+				},
+				error => {
+					if(!(handler in handlers)) return;
+					handlers[handler].timer = schedule(() => requestWatchPosition(handler, cb1, cb2, options), 1000);
+					if(cb2) cb2(error);
+				},
+				options
+			);
+		}
+
+		function protectedWatchPosition(cb1, cb2, options) {
+			const handler = nextHandler++;
+			handlers[handler] = { timer: null };
+			requestWatchPosition(handler, cb1, cb2, options);
+			return handler;
+		}
+
+		function protectedClearWatch(handler) {
+			if(!(handler in handlers)) return;
+
+			const timer = handlers[handler].timer;
 			delete handlers[handler];
-			if(nativeId != null)
-				clearWatch.apply(navigator.geolocation, [nativeId]);
+			if(timer != null) cancelSchedule(timer);
+		}
+
+		const protectedMethods = {
+			getCurrentPosition: protectedGetCurrentPosition,
+			watchPosition: protectedWatchPosition,
+			clearWatch: protectedClearWatch
 		};
+		const geolocationPrototype = Object.getPrototypeOf(navigator.geolocation);
+
+		Object.keys(protectedMethods).forEach(name => {
+			const descriptor = { value: protectedMethods[name], configurable: true, writable: true };
+			Object.defineProperty(geolocationPrototype, name, descriptor);
+			Object.defineProperty(navigator.geolocation, name, descriptor);
+		});
 	}
 
 	// remove script
