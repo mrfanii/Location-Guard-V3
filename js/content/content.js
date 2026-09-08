@@ -22,49 +22,12 @@ const Util = require('../common/util');
 const PostRPC = require('../common/post-rpc');
 const injectedCode = require('./injected');
 
-// insert a script in the html, inline (<script>...</script>) or external (<script src='...'>)
-function insertScript(inline, data) {
-  var script = document.createElement('script');
-	script.setAttribute('id', '__lg_script');
-	if(inline)
-		script.appendChild(document.createTextNode(data));
-	else
-		script.setAttribute('src', data);
-
-	// FF: there is another variables in the scope named parent, this causes a very hard to catch bug
-	var _parent = document.head || document.body || document.documentElement;
-	var firstChild = (_parent.childNodes && (_parent.childNodes.length > 0)) ? _parent.childNodes[0] : null;
-	if(firstChild)
-		_parent.insertBefore(script, firstChild);
-	else
-		_parent.appendChild(script);
-}
-
 // DEMO: save the getCurrentPosition function, cause in the demo page it gets replaced (no separate js environment)
 var getCurrentPosition = navigator.geolocation.getCurrentPosition;
 
 if(Browser.inDemo) {	// DEMO: this is set in demo.js
 	// DEMO: we are inside the page, just run injectedCode()
 	injectedCode(PostRPC);
-
-} else if(document.documentElement.tagName.toLowerCase() == 'html') { // only for html
-	// We first try to inject the code in an inline <script>. This is the only way to force it to run immediately.
-	// We run the PostRPC code (which creates PostRPC) and pass the result to the injectedCode.
-	//
-	var code =
-		"(" + injectedCode + ")(" +
-			"(" + PostRPC._code + ")()" +
-		");"
-	insertScript(true, code);
-
-	// BUT: in Firefox this fails if the page has a CSP that prevents inline scripts (chrome ignores the CSP for scripts injected by extensions).
-	// If the inline script did not execute, we insert an external one (this might be executed too late, but it's all we can do).
-	//
-	var s = document.getElementById('__lg_script');
-	if(s) { // the injected code deletes the script, if it's still there it means that the code failed
-		s.remove();
-		insertScript(false, Browser.gui.getURL("js/content/inject.js"));
-	}
 }
 
 var inFrame = (window != window.top);	// are we in a frame?

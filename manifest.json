@@ -21,21 +21,38 @@
     "page": "options.html"
   },
   "permissions": [
-    "scripting",
     "storage"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
-  "web_accessible_resources": [
+  "content_scripts": [
     {
-      "resources": [
-        "js/content/inject.js"
-      ],
       "matches": [
         "<all_urls>"
       ],
-      "use_dynamic_url": true
+      "js": [
+        "js/content/main-world.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "js/common.js",
+        "js/content/content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
+      "world": "ISOLATED"
     }
   ]
 }

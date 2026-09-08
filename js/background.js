@@ -778,16 +778,3 @@ if(Browser.testing) {
 
 },{"./common/browser":"/src/js/common/browser.js","./common/util":"/src/js/common/util.js"}]},{},[1]);
 
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.scripting.registerContentScripts([{
-    id: 'contentScripts',
-    js: ['js/common.js', 'js/content/content.js'],
-    matches: ['<all_urls>'],
-    runAt: 'document_start',
-    allFrames: true
-  }], () => {
-    console.log('Content scripts registered.');
-  });
-});
-
