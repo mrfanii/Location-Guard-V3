@@ -1,0 +1,17 @@
+{
+  "name": "location_guard_v3",
+  "version": "3.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=12.6.0"
+  }
+}
