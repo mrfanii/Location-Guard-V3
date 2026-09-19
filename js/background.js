@@ -90,12 +90,26 @@ require=(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c=
     };
 
     Browser.rpc.call = async function(tabId, name, args) {
-      return new Promise(resolve => {
+      return new Promise((resolve, reject) => {
         var message = { method: name, args: args };
+        var replyHandler = function(value) {
+          var error = browser.runtime.lastError;
+          if(!error) {
+            resolve(value);
+            return;
+          }
+
+          if(error.message == 'Could not establish connection. Receiving end does not exist.') {
+            resolve();
+            return;
+          }
+
+          reject(new Error(error.message));
+        };
         if(tabId)
-          browser.tabs.sendMessage(tabId, message, resolve);
+          browser.tabs.sendMessage(tabId, message, replyHandler);
         else
-          browser.runtime.sendMessage(null, message, resolve);
+          browser.runtime.sendMessage(null, message, replyHandler);
       });
     }
 

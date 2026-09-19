@@ -86,6 +86,15 @@ function send(method, args = []) {
 }
 
 (async () => {
+  chrome.tabs.sendMessage = (tabId, message, callback) => {
+    chrome.runtime.lastError = { message: 'Could not establish connection. Receiving end does not exist.' };
+    callback();
+    delete chrome.runtime.lastError;
+  };
+  assert.equal(await send('apiCalledInFrame', ['https://frame.invalid']), undefined, 'tabs without a content-script receiver must be ignored');
+
+  chrome.tabs.sendMessage = (tabId, message, callback) => callback();
+
   const candidateA = { epoch: Date.now(), position: { coords: { latitude: 1, longitude: 1, accuracy: 10 } } };
   const candidateB = { epoch: Date.now(), position: { coords: { latitude: 2, longitude: 2, accuracy: 10 } } };
 
