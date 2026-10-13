@@ -1,7 +1,7 @@
 {
   "name": "Location Guard (V3)",
   "manifest_version": 3,
-  "version": "3.0.0",
+  "version": "3.1.0",
   "action": {
     "default_icon": {
       "128": "images/pin_128.png"
