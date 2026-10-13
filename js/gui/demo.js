@@ -2,11 +2,10 @@
   const $ = globalThis.jQuery;
   const introJs = globalThis.introJs;
   const L = globalThis.L;
-  // LocateControl extends the global Leaflet instance.
 
   const Browser = globalThis.LocationGuard.Browser;
 
-  Browser.inDemo = true; // used in content.js
+  Browser.inDemo = true;
   var intro, steps;
   var demoMap;
   var showPressed, geoDone;
@@ -15,16 +14,12 @@
   $.mobile.linkBindingEnabled = false;
 
   $(document).ready(function () {
-    $('#left-panel').panel().enhanceWithin(); // initialize panel
+    $('#left-panel').panel().enhanceWithin();
 
-    // open panel on swipe
     $(document).on('swiperight', function (e) {
-      if ($('#left-panel').css('visibility') !== 'visible')
-        // check if already open (manually or due to large screen)
-        $('#left-panel').panel('open');
+      if ($('#left-panel').css('visibility') !== 'visible') $('#left-panel').panel('open');
     });
 
-    // setup map
     demoMap = new L.map('demoMap')
       .addLayer(new L.TileLayer(Browser.gui.mapTiles().url, Browser.gui.mapTiles().info))
       .on('click', function (e) {
@@ -32,19 +27,16 @@
       })
       .setView([0, 0], 2);
 
-    // extend the Locate control and override the "start" method, so that it sets the marker to the user's location
-    // see https://github.com/domoritz/leaflet-locatecontrol
-    //
+    // Override LocateControl so the demo controls how the result is displayed.
     var myLocate = L.Control.Locate.extend({
       start: showCurrentPosition,
     });
     new myLocate({
-      icon: 'icon-trans ui-btn-icon-notext ui-icon-location', // use jqm's icons to avoid loading
-      iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location', // font awesome
+      icon: 'icon-trans ui-btn-icon-notext ui-icon-location',
+      iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location',
     }).addTo(demoMap);
 
-    // set tooltip's max-width to the width of the page
-    // this cannot be done with max-width: 100% cause introjs-tooltip's parent has width=0 !
+    // The tooltip parent has zero width, so a percentage max-width cannot be used.
     var w = $(window).width() - 40;
     $('head').append('<style> .introjs-tooltip { max-width: ' + w + 'px } </style>');
 
@@ -54,7 +46,6 @@
       $('#left-panel').panel('close');
     });
 
-    // ready to go
     startDemo();
   });
 
@@ -102,7 +93,6 @@
             ? 'Location Guard did not modify it.'
             : 'Location Guard added "noise" to it so that it\'s not very accurate.';
 
-      // hacky way to modify the step's message
       intro._introItems[3].intro = steps[3].intro.replace('%s', s);
 
       intro.goToStep(4);
@@ -160,10 +150,8 @@
       .onafterchange(function () {
         var step = intro._currentStep + 1;
 
-        // disable "Next" in steps 2/3 until the corresponding actions are performed
         $('.introjs-nextbutton').toggleClass('introjs-disabled unclickable', (step == 2 && !showPressed) || (step == 3 && !geoDone) || step == 4);
 
-        // remove dark overlay in steps 1, 4
         $('.introjs-overlay')[0].style.opacity = step == 1 || step == 4 ? 0 : 0.5;
       })
       .start();

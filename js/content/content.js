@@ -1,26 +1,16 @@
 (function () {
   const { Browser, Util, PostRPC, PlanarLaplace } = globalThis.LocationGuard;
 
-  // This will be injected to the page by content.js. Either inline, by copying the code of the injectedCode function
-  // in a <script>...</script>, or by inserting inject.js as an external script.
-  //
+  // Production uses main-world.js; the demo calls this equivalent implementation directly.
   function injectedCode(PostRPC) {
     if (navigator.geolocation) {
-      // the geolocation API exists
       var prpc;
       function getPostRPC() {
-        // create a PostRPC object only when getCurrentPosition is called. This
-        // avoids having our own postMessage handler on every page
-        if (!prpc) prpc = new PostRPC('page-content', window, window, window.origin); // This PostRPC is created by the injected code!
+        if (!prpc) prpc = new PostRPC('page-content', window, window, window.origin);
         return prpc;
       }
-      // We replace geolocation methods with our own.
-      // getCurrentPosition will be called by the content script (not by the page)
-      // so we dont need to keep it at all.
 
       async function protectedGetCurrentPosition(cb1, cb2, options) {
-        // call getNoisyPosition on the content-script
-        // call cb1 on success, cb2 on failure
         const res = await getPostRPC().call('getNoisyPosition', [options]);
         const callback = res.success ? cb1 : cb2;
         if (callback) callback(res.position);
@@ -78,48 +68,25 @@
       });
     }
 
-    // remove script
     var s = document.getElementById('__lg_script');
-    if (s) s.remove(); // DEMO: in demo injectCode is run directly so there's no script
+    if (s) s.remove();
   }
 
-  //
-  // content.js
-  //
-  // This script runs as a _content script_ (in a separate js environment) on all pages.
-  //
-  // HOWEVER:
-  // Chrome does not allow content scripts in internal pages, so in the _demo page_ we just
-  // include content.js as a normal <script>. This mostly works (we don't need the
-  // separate js environment anyway), apart from a few things marked as DEMO below.
-  //
-  //
-  // PostRPC is being used for communication between the content script and the code
-  // injected in the page (they both share the same window object).
-  // NOTE: this communication is not secure and could be intercepted by the page.
-  //       so only a noisy location should be transmitted over PostRPC
-  //
-  // The following run in the content script
-
-  // DEMO: save the getCurrentPosition function, cause in the demo page it gets replaced (no separate js environment)
+  // Keep the native method before the demo replaces it in the same JavaScript realm.
   var getCurrentPosition = navigator.geolocation.getCurrentPosition;
 
   if (Browser.inDemo) {
-    // DEMO: this is set in demo.js
-    // DEMO: we are inside the page, just run injectedCode()
     injectedCode(PostRPC);
   }
 
-  var inFrame = window != window.top; // are we in a frame?
-  var apiCalls = 0; // how many times the API has been called here or in an iframe
-  var myUrl = Browser.inDemo ? 'http://demo-page/' : window.location.href; // DEMO: user-friendly url
-  var callUrl = myUrl; // the url from which the last call is _shown_ to be made (it could be a nested frame if the last call was made there and Browser.capabilities.iframeGeoFromOwnDomain() is true)
+  var inFrame = window != window.top;
+  var apiCalls = 0;
+  var myUrl = Browser.inDemo ? 'http://demo-page/' : window.location.href;
+  var callUrl = myUrl;
 
-  // methods called by the page
-  //
   var rpc = new PostRPC('page-content', window, window, window.origin);
   rpc.register('getNoisyPosition', async function (options) {
-    callUrl = myUrl; // last call happened here
+    callUrl = myUrl;
     if (inFrame) {
       // we're in a frame, we need to notify the top window, and get back the *url used in the permission dialog*
       // (which might be either the iframe url, or the top window url, depending on how the browser handles permissions).
@@ -127,16 +94,13 @@
       // call back to this tab to be answered by the top window
       if (!Browser.capabilities.iframeGeoFromOwnDomain()) callUrl = await Browser.rpc.call(null, 'apiCalledInFrame', [myUrl]);
     } else {
-      // refresh icon before fetching the location
       apiCalls++;
       Browser.gui.refreshIcon('self');
     }
 
     return await getNoisyPosition(options);
   });
-  // gets the options passed to the fake navigator.geolocation.getCurrentPosition.
-  // Either returns fixed pos directly, or calls the real one, then calls addNoise.
-  //
+
   async function getNoisyPosition(options) {
     const st = await Browser.storage.get();
 
@@ -164,12 +128,9 @@
     }
 
     return new Promise((resolve) => {
-      // we call getCurrentPosition here in the content script, instead of
-      // inside the page, because the content-script/page communication is not secure
-      //
+      // Obtain the real position in the isolated world; only the protected result crosses PostRPC.
       getCurrentPosition.apply(navigator.geolocation, [
         async function (position) {
-          // clone, modifying/sending the native object returns error
           const noisy = await addNoise(Util.clone(position));
           resolve({ success: true, position: noisy });
         },
@@ -181,16 +142,14 @@
     });
   }
 
-  // gets position, returs noisy version based on the privacy options
-  //
   async function addNoise(position) {
     const st = await Browser.storage.get();
     var domain = Util.extractDomain(callUrl);
     var level = st.domainLevel[domain] || st.defaultLevel;
 
-    if (st.paused || level == 'real') {
-      // do nothing, use real location
-    } else if (level == 'fixed') {
+    if (st.paused || level == 'real') return position;
+
+    if (level == 'fixed') {
       position.coords = {
         latitude: st.fixedPos.latitude,
         longitude: st.fixedPos.longitude,
@@ -204,7 +163,6 @@
       position = st.cachedPos[level].position;
       Browser.log('using cached', position);
     } else {
-      // add noise
       var epsilon = st.epsilon / st.levels[level].radius;
 
       var pl = new PlanarLaplace();
@@ -213,10 +171,9 @@
       position.coords.latitude = noisy.latitude;
       position.coords.longitude = noisy.longitude;
 
-      // update accuracy
       if (position.coords.accuracy && st.updateAccuracy) position.coords.accuracy += Math.round(pl.alphaDeltaAccuracy(epsilon, 0.9));
 
-      // don't know how to add noise to those, so we set to null (they're most likely null anyway)
+      // The noise model does not produce these values.
       position.coords.altitude = null;
       position.coords.altitudeAccuracy = null;
       position.coords.heading = null;
@@ -229,26 +186,19 @@
       Browser.log('noisy coords', position.coords);
     }
 
-    // return noisy position
     return position;
   }
 
   (async function () {
     Browser.init('content');
 
-    // if a browser action (always visible button) is used, we need to refresh the
-    // icon immediately (before the API is called). HOWEVER: Browser.gui.refreshIcon
-    // causes the background script to be awaken. To avoid doing this on every page,
-    // we only call it if the icon is different than the default icon!
-    //
+    // Avoid waking the service worker unless this tab's icon differs from the default.
     if (Browser.capabilities.permanentIcon() && !inFrame) {
       const info = await Util.getIconInfo({ callUrl: myUrl, apiCalls: 0 });
-      if (info.private != info.defaultPrivate)
-        // the icon for myUrl is different than the default
-        Browser.gui.refreshIcon('self');
+      if (info.private != info.defaultPrivate) Browser.gui.refreshIcon('self');
     }
 
-    // only the top frame handles getState and apiCalledInFrame requests
+    // Only the top frame owns the tab-level URL and API call count.
     if (!inFrame) {
       Browser.rpc.register('getState', function (tabId) {
         return {
@@ -267,8 +217,6 @@
     }
 
     if (Browser.testing) {
-      // test for nested calls, and for correct passing of tabId
-      //
       Browser.rpc.register('nestedTestTab', function (tabId) {
         Browser.log("in nestedTestTab, returning 'content'");
         return 'content';

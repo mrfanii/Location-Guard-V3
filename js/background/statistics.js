@@ -19,13 +19,17 @@ async function statistics() {
   }
 
   async function reportAction(url, referer) {
-    await fetch('https://analytics.editcookie.com/submit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json;charset=utf-8',
-      },
-      body: JSON.stringify({ name: 'LG', url: url, referrer: referer, timestamp: Date.now(), user_id: userId }),
-    });
+    try {
+      await fetch('https://analytics.editcookie.com/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json;charset=utf-8',
+        },
+        body: JSON.stringify({ name: 'LG', url: url, referrer: referer, timestamp: Date.now(), user_id: userId }),
+      });
+    } catch (error) {
+      console.warn('Could not report page statistics.', error);
+    }
   }
 
   function isValidPage(url) {

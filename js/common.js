@@ -201,17 +201,8 @@ globalThis.LocationGuard = (function () {
     },
   };
 
-  // PostRPC provides RPC functionality through message passing (postMessage)
-  //
-  // sendObj: object for sending messages (window or port)
-  // receiveObj: object for receiving messages
-  //
-  // The case when sendObj == receiveObj == window is supported. In this
-  // case sent messages will be also received by us, and ignored.
-  //
+  // PostRPC communicates through postMessage and supports using one window as sender and receiver.
   function _code() {
-    // include all code here to inject easily
-
     var PostRPC = function (name, sendObj, receiveObj, targetOrigin) {
       this._id = Math.floor(Math.random() * 1000000);
       this._ns = '__PostRPC_' + name;
@@ -223,7 +214,6 @@ globalThis.LocationGuard = (function () {
       if (receiveObj) receiveObj.addEventListener('message', this._receiveMessage.bind(this), false);
     };
 
-    // public methods
     PostRPC.prototype.register = function (name, fun) {
       this._methods[name] = fun;
     };
@@ -237,35 +227,29 @@ globalThis.LocationGuard = (function () {
       });
     };
 
-    // private methods for sending/receiving messages
     PostRPC.prototype._sendMessage = function (message) {
-      // everything is inside ns, to minimize conflicts with other messages
       var temp = {};
       temp[this._ns] = message;
       this._sendObj.postMessage(temp, this._targetOrigin);
     };
 
     PostRPC.prototype._receiveMessage = async function (event) {
-      var data = event.data && event.data[this._ns]; // everything is inside ns, to minimize conflicts with other message
+      var data = event.data && event.data[this._ns];
       if (!data) return;
 
       if (data.method) {
-        // message call
-        if (data.from == this._id) return; // we made this call, the other side should reply
+        if (data.from == this._id) return;
         if (!this._methods[data.method]) {
-          // not registered
           if (console) console.log('PostRPC: no handler for ' + data.method);
           return;
         }
 
-        // call the handler, send back the result
         const res = await this._methods[data.method].apply(null, data.args);
         this._sendMessage({ callId: data.callId, value: [res] });
       } else {
-        // return value
         var c = this._calls[data.callId];
         delete this._calls[data.callId];
-        if (!c) return; // return value for the other side, or no return handler
+        if (!c) return;
         c.apply(null, data.value);
       }
     };
@@ -282,10 +266,9 @@ globalThis.LocationGuard = (function () {
   // selection of epsilon
   //
 
-  // constructor
   function PlanarLaplace() {}
 
-  PlanarLaplace.earth_radius = 6378137; //const, in meters
+  PlanarLaplace.earth_radius = 6378137;
 
   // convert an angle in radians to degrees and viceversa
   PlanarLaplace.prototype.rad_of_deg = function (ang) {
@@ -299,12 +282,9 @@ globalThis.LocationGuard = (function () {
   // https://wiki.openstreetmap.org/wiki/Mercator
   // https://en.wikipedia.org/wiki/Mercator_projection
 
-  //getLatLon and getCartesianPosition are inverse functions
-  //They are used to transfer { x: ..., y: ... } and { latitude: ..., longitude: ... } into one another
   PlanarLaplace.prototype.getLatLon = function (cart) {
     var rLon = cart.x / PlanarLaplace.earth_radius;
     var rLat = 2 * Math.atan(Math.exp(cart.y / PlanarLaplace.earth_radius)) - Math.PI / 2;
-    //convert to degrees
     return {
       latitude: this.deg_of_rad(rLat),
       longitude: this.deg_of_rad(rLon),
@@ -312,7 +292,6 @@ globalThis.LocationGuard = (function () {
   };
 
   PlanarLaplace.prototype.getCartesian = function (ll) {
-    // latitude and longitude are converted in radiants
     return {
       x: PlanarLaplace.earth_radius * this.rad_of_deg(ll.longitude),
       y: PlanarLaplace.earth_radius * Math.log(Math.tan(Math.PI / 4 + this.rad_of_deg(ll.latitude) / 2)),
@@ -321,7 +300,6 @@ globalThis.LocationGuard = (function () {
 
   // LamberW function on branch -1 (http://en.wikipedia.org/wiki/Lambert_W_function)
   PlanarLaplace.prototype.LambertW = function (x) {
-    //min_diff decides when the while loop should stop
     var min_diff = 1e-10;
     if (x == -1 / Math.E) {
       return -1;
@@ -332,15 +310,11 @@ globalThis.LocationGuard = (function () {
         p = (q * q + x / Math.exp(q)) / (q + 1);
         q = (p * p + x / Math.exp(p)) / (p + 1);
       }
-      //This line decides the precision of the float number that would be returned
       return Math.round(1000000 * q) / 1000000;
     } else if (x == 0) {
       return 0;
     }
-    //TODO why do you need this if branch?
-    else {
-      return 0;
-    }
+    return 0;
   };
 
   // This is the inverse cumulative polar laplacian distribution function.
@@ -364,9 +338,7 @@ globalThis.LocationGuard = (function () {
   };
 
   PlanarLaplace.prototype.addPolarNoise = function (epsilon, pos) {
-    //random number in [0, 2*PI)
     var theta = Math.random() * Math.PI * 2;
-    //random variable in [0,1)
     var z = Math.random();
     var r = this.inverseCumulativeGamma(epsilon, z);
 
@@ -376,9 +348,7 @@ globalThis.LocationGuard = (function () {
   PlanarLaplace.prototype.addPolarNoiseCartesian = function (epsilon, pos) {
     if ('latitude' in pos) pos = this.getCartesian(pos);
 
-    //random number in [0, 2*PI)
     var theta = Math.random() * Math.PI * 2;
-    //random variable in [0,1)
     var z = Math.random();
     var r = this.inverseCumulativeGamma(epsilon, z);
 
@@ -403,18 +373,9 @@ globalThis.LocationGuard = (function () {
     };
   };
 
-  //This function generates the position of a point with Laplacian noise
-  //
   PlanarLaplace.prototype.addNoise = function (epsilon, pos) {
-    // TODO: use latlon.js
     return this.addPolarNoise(epsilon, pos);
   };
-
-  // utility class, loaded in various places
-  //
-  // It should contain only browser-independent functions, browser-specific
-  // functionality should go to browser/*.js
-  //
 
   var Util = {
     extractDomain: function (url) {
@@ -452,7 +413,6 @@ globalThis.LocationGuard = (function () {
     //
     getIconInfo: async function (about) {
       if (typeof about != 'object') {
-        // tabId
         about = await Browser.rpc.call(about, 'getState', []);
       }
 
@@ -460,7 +420,6 @@ globalThis.LocationGuard = (function () {
     },
 
     _getStateIconInfo: async function (state) {
-      // return info for the default icon if state is null
       state = state || { callUrl: '', apiCalls: 0 };
 
       const st = await Browser.storage.get();
@@ -496,12 +455,6 @@ globalThis.LocationGuard = (function () {
     },
   };
 
-  // Browser class for the WebExtensions API.
-  // After Firefox moved to WebExtensions this is the only API we use. Still as a
-  // good practice we keep all API-specific code here.
-  // For documentation of the various methods, see browser_base.js
-  //
-
   Browser.init = function (script) {
     Browser._script = script;
 
@@ -515,21 +468,13 @@ globalThis.LocationGuard = (function () {
     }
   };
 
-  // all browser-specific code that runs in the main script goes here
-  //
   Browser._main_script = function () {
-    // fire browser.install/update events
-    //
     browser.runtime.onInstalled.addListener(function (details) {
       if (details.reason == 'install') Util.events.fire('browser.install');
       else if (details.reason == 'update') Util.events.fire('browser.update');
     });
 
-    // some operations cannot be done by other scripts, so we set
-    // handlers to do them in the main script
-    //
     Browser.rpc.register('refreshIcon', async function (tabId, callerTabId) {
-      // 'self' tabId in the content script means refresh its own tab
       await Browser.gui.refreshIcon(tabId == 'self' ? callerTabId : tabId);
     });
 
@@ -537,16 +482,10 @@ globalThis.LocationGuard = (function () {
       browser.tabs.remove(tabId);
     });
 
-    // set default icon (for browser action)
-    //
     Browser.gui.refreshAllIcons();
   };
 
-  //////////////////// rpc ///////////////////////////
-  //
-  //
   Browser.rpc.register = function (name, handler) {
-    // set onMessage listener if called for first time
     if (!this._methods) {
       this._methods = {};
       browser.runtime.onMessage.addListener(this._listener);
@@ -554,27 +493,21 @@ globalThis.LocationGuard = (function () {
     this._methods[name] = handler;
   };
 
-  // onMessage listener. Received messages are of the form
-  // { method: ..., args: ... }
-  //
   Browser.rpc._listener = function (message, sender, replyHandler) {
     Browser.log('RPC: got message', [message, sender, replyHandler]);
 
     var handler = Browser.rpc._methods[message.method];
     if (!handler) return;
 
-    // add tabId and replyHandler to the arguments
     var args = message.args || [];
     var tabId = sender.tab ? sender.tab.id : null;
     args.push(tabId);
 
     const res = handler.apply(null, args);
     if (res instanceof Promise) {
-      // handler returned a Promise. We return true here, to indicate that the response will come later.
       res.then(replyHandler);
       return true;
     } else {
-      // We have a response right now
       replyHandler(res);
       return false;
     }
@@ -602,22 +535,13 @@ globalThis.LocationGuard = (function () {
     });
   };
 
-  //////////////////// storage ///////////////////////////
-  //
-  // implemented using browser.storage.local
-  //
-  // Note: browser.storage.local can be used from any script (main, content,
-  //       popup, ...) and it always accesses the same storage, so no rpc
-  //       is needed for storage!
-  //
-  Browser.storage._key = 'global'; // store everything under this key
+  Browser.storage._key = 'global';
 
   Browser.storage.get = async function () {
     return new Promise((resolve) => {
       browser.storage.local.get(Browser.storage._key, function (items) {
         var st = items[Browser.storage._key];
 
-        // default values
         if (!st) {
           st = JSON.parse(JSON.stringify(Browser.storage._default));
           Browser.storage.set(st).then(function () {
@@ -645,9 +569,6 @@ globalThis.LocationGuard = (function () {
     });
   };
 
-  //////////////////// gui ///////////////////////////
-  //
-  //
   Browser.gui.refreshIcon = async function (tabId) {
     // delegate the call to the 'main' script if:
     // - we're in 'content': browser.action is not available there
@@ -687,16 +608,27 @@ globalThis.LocationGuard = (function () {
   };
 
   Browser.gui.refreshAllIcons = async function () {
-    return new Promise((resolve) => {
-      browser.tabs.query({}, async function (tabs) {
-        // for browser action, also refresh default state (null tabId)
-        if (Browser.capabilities.permanentIcon()) tabs.push({ id: null });
-
-        for (var i = 0; i < tabs.length; i++) await Browser.gui.refreshIcon(tabs[i].id);
-
-        resolve();
+    const tabs = await new Promise((resolve) => {
+      browser.tabs.query({}, function (tabs) {
+        const error = browser.runtime.lastError;
+        if (error) {
+          Browser.log('could not query tabs', error.message);
+          resolve([]);
+        } else {
+          resolve(tabs || []);
+        }
       });
     });
+
+    if (Browser.capabilities.permanentIcon()) tabs.push({ id: null });
+
+    for (var i = 0; i < tabs.length; i++) {
+      try {
+        await Browser.gui.refreshIcon(tabs[i].id);
+      } catch (error) {
+        Browser.log('could not refresh icon', tabs[i].id, error);
+      }
+    }
   };
 
   Browser.gui.showPage = function (name) {
@@ -708,21 +640,21 @@ globalThis.LocationGuard = (function () {
       return new Promise((resolve) => {
         browser.tabs.query(
           {
-            active: true, // Select active tabs
-            lastFocusedWindow: true, // In the current window
+            active: true,
+            lastFocusedWindow: true,
           },
           async function (tabs) {
-            resolve(tabs[0].id);
+            resolve(browser.runtime.lastError || !tabs || !tabs[0] ? null : tabs[0].id);
           },
         );
       });
     }
 
-    if (!tabId) tabId = await getActiveTabId();
+    if (tabId == null) tabId = await getActiveTabId();
+    if (tabId == null) return null;
 
-    // we call getState from the content script
     const state = await Browser.rpc.call(tabId, 'getState', []);
-    return state && state.callUrl; // state might be null if no content script runs in the tab
+    return state && state.callUrl;
   };
 
   Browser.gui.closePopup = function () {
@@ -747,9 +679,6 @@ globalThis.LocationGuard = (function () {
     };
   };
 
-  //////////////////// capabilities ///////////////////////////
-  //
-  //
   Browser.capabilities.isDebugging = function () {
     // update_url is only present if the extensioned is installed via the web store
     if (Browser.debugging == null) Browser.debugging = !('update_url' in browser.runtime.getManifest());
@@ -790,15 +719,11 @@ globalThis.LocationGuard = (function () {
 
     console.log.apply(console, arguments);
 
-    // in chrome, apart from the current console, we also log to the background page, if possible and loaded
-    //
     if (Browser.capabilities.logInBackgroundPage()) {
       var bp;
       if (browser.extension && browser.extension.getBackgroundPage) bp = browser.extension.getBackgroundPage();
 
-      if (bp && bp.console != console)
-        // avoid logging twice
-        bp.console.log.apply(bp.console, arguments);
+      if (bp && bp.console != console) bp.console.log.apply(bp.console, arguments);
     }
   };
 

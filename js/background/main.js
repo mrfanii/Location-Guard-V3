@@ -1,15 +1,9 @@
-// main script
-// Here we only handle the install/update events
-// Browser-specific functionality for the main script, if needed, is added by browser/*.js
-//
-
 (function () {
   const { Browser, Util, PlanarLaplace } = globalThis.LocationGuard;
 
   Browser.log('starting');
 
   Util.events.addListener('browser.install', function () {
-    // show demo on first install
     Browser.gui.showPage('demo.html');
   });
 
@@ -140,7 +134,10 @@
       });
       if (!bookmark) return { error: 'The selected saved location no longer exists.' };
 
-      st.fixedPos = { latitude: bookmark.latitude, longitude: bookmark.longitude };
+      const position = normalizeFixedPosition(bookmark);
+      if (!position) return { error: 'The selected saved location is invalid.' };
+
+      st.fixedPos = position;
       return { bookmark, position: st.fixedPos };
     });
   });
@@ -215,8 +212,6 @@
   });
 
   if (Browser.testing) {
-    // test for nested calls, and for correct passing of tabId
-    //
     Browser.rpc.register('nestedTestMain', async function (tabId) {
       Browser.log('in nestedTestMain, call from ', tabId, 'calling back nestedTestTab');
 

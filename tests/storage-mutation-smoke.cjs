@@ -159,12 +159,43 @@ function send(method, args = []) {
   assert.deepEqual(clone(activated.position), { latitude: 52.52, longitude: 13.405 });
   assert.deepEqual(stored.global.fixedPos, clone(activated.position));
 
+  stored.global.savedFixedPositions[0].latitude = 91;
+  const corrupted = await send('activateFixedPositionBookmark', [home.bookmark.id]);
+  assert.match(corrupted.error, /invalid/);
+  stored.global.savedFixedPositions[0].latitude = 52.52;
+
   const deleted = await send('deleteFixedPositionBookmark', [home.bookmark.id]);
   assert.deepEqual(deleted.bookmarks, []);
   assert.deepEqual(stored.global.fixedPos, clone(activated.position), 'deleting a bookmark must not change the active fixed position');
 
   const restored = await send('restoreDefaults');
   assert.deepEqual(clone(restored.savedFixedPositions), []);
+
+  assert.equal(await context.LocationGuard.Browser.gui.getCallUrl(), null, 'no active tab must return no call URL');
+
+  chrome.tabs.query = (options, callback) => {
+    chrome.runtime.lastError = { message: 'window closed' };
+    callback();
+    delete chrome.runtime.lastError;
+  };
+  assert.equal(await context.LocationGuard.Browser.gui.getCallUrl(), null, 'a closed window must return no call URL');
+
+  chrome.tabs.query = (options, callback) => callback([{ id: 1 }, { id: 2 }]);
+  const refreshedTabs = [];
+  chrome.action.setTitle = async ({ tabId }) => {
+    refreshedTabs.push(tabId);
+    if (tabId === 1) throw new Error('tab closed');
+  };
+  await context.LocationGuard.Browser.gui.refreshAllIcons();
+  assert.deepEqual(refreshedTabs.slice(0, 2), [1, 2], 'a closed tab must not prevent the remaining icons from refreshing');
+
+  chrome.tabs.query = (options, callback) => {
+    chrome.runtime.lastError = { message: 'window closed' };
+    callback();
+    delete chrome.runtime.lastError;
+  };
+  await context.LocationGuard.Browser.gui.refreshAllIcons();
+
   console.log('storage mutation smoke ok');
 })().catch((error) => {
   console.error(error);

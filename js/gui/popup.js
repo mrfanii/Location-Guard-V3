@@ -7,10 +7,11 @@
   Browser.init('popup');
 
   const $ = globalThis.jQuery;
-  $.mobile.hashListeningEnabled = false; // disabling state changing is needed in firefox,
-  $.mobile.pushStateEnabled = false; // it breaks when executed in the popup cause there's no history
-  $.mobile.ajaxEnabled = false; // doesn't hurt but not needed
-  $.mobile.autoInitializePage = false; // don't initialize until we set all values, avoids a quick but visible refresh
+  // History navigation breaks extension popups, and initialization must wait for async state.
+  $.mobile.hashListeningEnabled = false;
+  $.mobile.pushStateEnabled = false;
+  $.mobile.ajaxEnabled = false;
+  $.mobile.autoInitializePage = false;
 
   $(document).ready(drawUI);
 
@@ -69,7 +70,6 @@
         var page = action == 'options' ? 'options.html' : 'faq.html#general';
 
         if (Browser.capabilities.popupAsTab()) {
-          // we're in a normal tab, just navigate to the page
           window.location.href = page;
         } else {
           Browser.gui.showPage(page);
@@ -97,8 +97,8 @@
         $('#savedFixedPositionsPopup').popup('open');
         break;
 
-      default: // set level
-        if (!url) throw 'no url'; // just to be sure
+      default:
+        if (!url) throw 'no url';
 
         var domain = Util.extractDomain(url);
         var level = action;
@@ -113,7 +113,6 @@
     var res = window.location.href.match(/tabId=(\d+)/);
     var tabId = res ? parseInt(res[1]) : null;
 
-    // we need storage and url
     const callUrl = await Browser.gui.getCallUrl(tabId);
     const st = await Browser.storage.get();
     Browser.log('popup: callUrl', callUrl, 'settings', st);
@@ -150,20 +149,15 @@
     $('a, input[name="level"]').on('click', doAction);
     $('input[name="savedFixedPosition"]').on('click', activateSavedFixedPosition);
 
-    // we're ready, init
     $.mobile.initializePage();
 
     if (Browser.capabilities.popupAsTab()) {
-      // the popup is displayed as a normal tab
-      // set 100% width/height
       $('html, body, #container').css({
         width: '100%',
         height: '100%',
       });
-      // show the close button
       $('#close').css({ display: 'block' }).on('click', Browser.gui.closePopup);
     } else {
-      // normal popup, resize body to match #container
       var width = $('#container').width();
       var height = $('#container').height();
 
@@ -177,8 +171,6 @@
   (async function () {
     if (!Browser.testing) return;
 
-    // test for nested calls, and for correct passing of tabId
-    //
     Browser.rpc.register('nestedTestTab', function (tabId) {
       Browser.log("in nestedTestTab, returning 'popup'");
       return 'popup';

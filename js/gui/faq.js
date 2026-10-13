@@ -3,7 +3,6 @@
 
   Browser.log('faq loading');
 
-  // send an empty reply to getState (see options.js)
   Browser.init('options');
   Browser.rpc.register('getState', function (tabId) {
     return null;
@@ -18,16 +17,12 @@
   }
 
   $(document).ready(function () {
-    $('#left-panel').panel().enhanceWithin(); // initialize panel
+    $('#left-panel').panel().enhanceWithin();
 
-    // open panel on swipe
     $(document).on('swiperight', function (e) {
-      if ($('#left-panel').css('visibility') !== 'visible')
-        // check if already open (manually or due to large screen)
-        $('#left-panel').panel('open');
+      if ($('#left-panel').css('visibility') !== 'visible') $('#left-panel').panel('open');
     });
 
-    // animate collapsibles in the faq
     $("#faq [data-role='collapsible']").collapsible({
       collapse: function (event, ui) {
         $(this).children().next().slideUp(150);

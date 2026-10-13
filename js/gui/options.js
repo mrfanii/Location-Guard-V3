@@ -1,11 +1,6 @@
 (function () {
   const $ = globalThis.jQuery;
-  // sGlide extends the global jQuery instance.
-
-  // Requiring the plugins extends Leaflet automatically
   const L = globalThis.L;
-  // The geocoder plugin extends the global Leaflet instance.
-  // LocateControl extends the global Leaflet instance.
 
   const Browser = globalThis.LocationGuard.Browser;
   const PlanarLaplace = globalThis.LocationGuard.PlanarLaplace;
@@ -21,7 +16,6 @@
   var inited = {};
   var sliderRadius, sliderCacheTime;
 
-  // default pos
   var currentPos = {
     latitude: 48.86014106672441,
     longitude: 2.3569107055664062,
@@ -29,7 +23,6 @@
 
   Browser.init('options');
 
-  // slider wrapper class, cause sGlide interface sucks
   function Slider(opt) {
     this.opt = opt;
     this.value = opt.min;
@@ -84,7 +77,6 @@
   function initLevelMap() {
     var latlng = [currentPos.latitude, currentPos.longitude];
 
-    // map
     levelMap = L.map('levelMap')
       .addLayer(new L.TileLayer(Browser.gui.mapTiles().url, Browser.gui.mapTiles().info))
       .setView(latlng, 13)
@@ -93,14 +85,12 @@
       })
       .on('click', function (e) {
         if (levelMap.popup._isOpen) {
-          // if popup is open, close it
           levelMap.closePopup();
           return;
         }
         handleChangePosEvent(e);
       });
 
-    // marker
     levelMap.marker = new L.marker(latlng, { draggable: true })
       .addTo(levelMap)
       .on('click', function () {
@@ -108,7 +98,6 @@
       })
       .on('drag', handleChangePosEvent);
 
-    // popup
     var popupHtml =
       '<div class="map-popup">' +
       '<p><b>Protection area (red)</b> and <b>accuracy (blue)</b> around some (hypothetical) location.</p>' +
@@ -123,7 +112,7 @@
       maxWidth: Math.min($('#levelMap').width() - 50, 300),
     }).setContent(popupHtml);
 
-    // circles (accuracy circle first to be on bottom)
+    // Add the accuracy circle first so it stays below the protection circle.
     levelMap.accuracy = new L.Circle(latlng, 1500, {
       color: null,
       fillColor: 'blue',
@@ -138,20 +127,16 @@
       clickable: false,
     }).addTo(levelMap);
 
-    // extend the Locate control and override the "start" method, so that it sets the marker to the user's location
-    // see https://github.com/domoritz/leaflet-locatecontrol
-    //
+    // Override LocateControl so it updates the example instead of moving the map itself.
     var myLocate = L.Control.Locate.extend({
       start: showCurrentPosition,
     });
     new myLocate({
-      icon: 'icon-trans ui-btn-icon-notext ui-icon-location', // use jqm's icons to avoid loading
-      iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location', // font awesome
+      icon: 'icon-trans ui-btn-icon-notext ui-icon-location',
+      iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location',
     }).addTo(levelMap);
 
-    // geocoder control
     if (!Browser.capabilities.isAndroid())
-      // not enough space on smartphones, better have a cleaner interface
       L.control
         .geocoder(geocoderKey, {
           url: geocoderUrl,
@@ -175,14 +160,12 @@
       })
       .on('click', function (e) {
         if (fixedPosMap.popup._isOpen) {
-          // if popup is open, close it
           fixedPosMap.closePopup();
           return;
         }
         saveFixedPos(e.latlng);
       });
 
-    // marker
     fixedPosMap.marker = new L.marker(latlng, { draggable: true })
       .addTo(fixedPosMap)
       .on('click', function () {
@@ -192,7 +175,6 @@
         saveFixedPos(e.target._latlng);
       });
 
-    // popup
     var popupHtml =
       '<div class="map-popup">' +
       '<p>This is the location reported when the privacy level is set to <b>"Use fixed location"</b>.</p>' +
@@ -207,19 +189,16 @@
 
     showPopup(fixedPosMap);
 
-    // locate control
     L.control
       .locate({
         drawCircle: false,
         follow: false,
-        icon: 'icon-trans ui-btn-icon-notext ui-icon-location', // use jqm's icons to avoid loading
-        iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location', // font awesome
+        icon: 'icon-trans ui-btn-icon-notext ui-icon-location',
+        iconLoading: 'icon-trans ui-btn-icon-notext ui-icon-location',
       })
       .addTo(fixedPosMap);
 
-    // geocoder control
     if (!Browser.capabilities.isAndroid())
-      // not enough space on smartphones, better have a cleaner interface
       L.control
         .geocoder(geocoderKey, {
           url: geocoderUrl,
@@ -227,14 +206,13 @@
           autocomplete: false,
         })
         .on('results', function (e) {
-          // directly set position if the text is a latlon
           var res = e.params.text.match(/^([-+]?[0-9]+\.[0-9]+)\s*,?\s*([-+]?[0-9]+\.[0-9]+)$/);
           if (!res) return;
 
           var latlng = L.latLng(parseFloat(res[1]), parseFloat(res[2]));
           saveFixedPos(latlng);
           fixedPosMap.setView(latlng, 14);
-          this.collapse(); // close the geocoder search
+          this.collapse();
         })
         .addTo(fixedPosMap);
 
@@ -242,7 +220,7 @@
   }
 
   async function saveFixedPos(latlng) {
-    var wrapped = latlng.wrap(); // force within normal range
+    var wrapped = latlng.wrap();
     var position = { latitude: wrapped.lat, longitude: wrapped.lng };
 
     fixedPosMap.marker.setLatLng(latlng);
@@ -374,7 +352,6 @@
 
   async function showLevelInfo() {
     const st = await Browser.storage.get();
-    // set sliders' value
     var radius = st.levels[activeLevel].radius;
     var cacheTime = st.levels[activeLevel].cacheTime;
     var ct =
@@ -389,7 +366,6 @@
     updateCache(ct);
   }
 
-  // change current pos as a reaction to a Leaflet event
   function handleChangePosEvent(e) {
     currentPos = { latitude: e.latlng.lat, longitude: e.latlng.lng };
     moveCircles();
@@ -423,12 +399,10 @@
 
     map.popup.setLatLng(latlng).openOn(map);
 
-    // hide popup "arrow" on small screens
     $('.leaflet-popup-tip-container').css({ visibility: smallSize ? 'hidden' : 'visible' });
   }
 
   function updateRadius(radius, fit) {
-    // update radius text and map
     var acc = Math.round(new PlanarLaplace().alphaDeltaAccuracy(epsilon / radius, 0.95));
 
     moveCircles();
@@ -448,7 +422,6 @@
   }
 
   function updateCache(ct) {
-    // update cache time text
     var h = ct - 59;
 
     $('#cacheTime').text(ct == 0 ? "don't cache" : ct < 60 ? ct + ' minute' + (ct > 1 ? 's' : '') : h + ' hour' + (h > 1 ? 's' : ''));
@@ -456,8 +429,6 @@
 
   function initPages() {
     $.mobile.ajaxEnabled = false;
-    //$.mobile.hideUrlBar = false;
-    //$.mobile.defaultPageTransition = "none";
 
     $(document).ready(function () {
       $('#hideIcon').parent().toggle(!Browser.capabilities.permanentIcon()); // hiding the icon only works with page action (not browser action)
@@ -467,15 +438,12 @@
       var page = ui.toPage[0].id;
 
       if (inited[page]) {
-        // page already inited. only call invalidateSize on maps
         if (page == 'levels') levelMap.invalidateSize();
         if (page == 'fixedPos') fixedPosMap.invalidateSize();
         return;
       }
       inited[page] = true;
 
-      // page initialization
-      //
       if (page == 'options') {
         const st = await Browser.storage.get();
         $('#defaultLevel').val(st.defaultLevel).selectmenu('refresh');
@@ -543,18 +511,13 @@
     window.alert('Location cache was deleted');
   }
 
-  // set page events before "ready"
-  //
   initPages();
 
   $(document).ready(function () {
-    $('#left-panel').panel().enhanceWithin(); // initialize panel
+    $('#left-panel').panel().enhanceWithin();
 
-    // open panel on swipe
     $(document).on('swiperight', function (e) {
-      if ($('#left-panel').css('visibility') !== 'visible')
-        // check if already open (manually or due to large screen)
-        $('#left-panel').panel('open');
+      if ($('#left-panel').css('visibility') !== 'visible') $('#left-panel').panel('open');
     });
 
     $('#options input, #options select').change(saveOptions);
@@ -585,14 +548,12 @@
       window.open('https://github.com/chatziko/location-guard/issues', '_blank');
     });
 
-    $(document).on('click', '#levelMapCurrentPos', showCurrentPosition); // this doesn't exist yet (it's inside the popup), so we set in document
+    $(document).on('click', '#levelMapCurrentPos', showCurrentPosition);
   });
 
   (async function () {
     if (!Browser.testing) return;
 
-    // test for nested calls, and for correct passing of tabId
-    //
     Browser.rpc.register('nestedTestTab', function (tabId) {
       Browser.log("in nestedTestTab, returning 'options'");
       return 'options';
