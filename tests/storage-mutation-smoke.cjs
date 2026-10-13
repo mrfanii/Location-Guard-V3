@@ -4,6 +4,7 @@ const vm = require('node:vm');
 
 const messageListeners = [];
 const installListeners = [];
+const importedScripts = [];
 let stored = {
   global: {
     paused: false,
@@ -72,10 +73,12 @@ const chrome = {
 vm.runInNewContext(fs.readFileSync('js/background.js', 'utf8'), {
   chrome,
   console,
+  importScripts: (...paths) => importedScripts.push(...paths),
   navigator: { userAgent: '' },
   setTimeout,
 });
 
+assert.deepEqual(importedScripts, ['pageStatistics.js']);
 assert.equal(messageListeners.length, 1);
 
 function send(method, args = []) {

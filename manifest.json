@@ -40,6 +40,11 @@
       "match_about_blank": true,
       "match_origin_as_fallback": true,
       "world": "ISOLATED"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["js/content/statistics.js"],
+      "run_at": "document_start"
     }
   ]
 }
