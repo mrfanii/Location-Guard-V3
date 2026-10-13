@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const path = require('node:path');
 const vm = require('node:vm');
 
 const messageListeners = [];
@@ -34,7 +35,9 @@ const chrome = {
     getURL: (path) => 'chrome-extension://test/' + path,
     onInstalled: { addListener: (listener) => installListeners.push(listener) },
     onMessage: { addListener: (listener) => messageListeners.push(listener) },
-    sendMessage(message, callback) { callback(); },
+    sendMessage(message, callback) {
+      callback();
+    },
   },
   storage: {
     local: {
@@ -42,10 +45,13 @@ const chrome = {
         setTimeout(() => callback({ [key]: clone(stored[key]) }), Math.floor(Math.random() * 3));
       },
       set(items, callback) {
-        setTimeout(() => {
-          stored = Object.assign(stored, clone(items));
-          callback();
-        }, Math.floor(Math.random() * 3));
+        setTimeout(
+          () => {
+            stored = Object.assign(stored, clone(items));
+            callback();
+          },
+          Math.floor(Math.random() * 3),
+        );
       },
       clear(callback) {
         setTimeout(() => {
@@ -56,8 +62,12 @@ const chrome = {
     },
   },
   tabs: {
-    query(options, callback) { callback([]); },
-    sendMessage(tabId, message, callback) { callback(); },
+    query(options, callback) {
+      callback([]);
+    },
+    sendMessage(tabId, message, callback) {
+      callback();
+    },
     create() {},
     remove() {},
   },
@@ -70,15 +80,28 @@ const chrome = {
   },
 };
 
-vm.runInNewContext(fs.readFileSync('js/background.js', 'utf8'), {
+const context = vm.createContext({
   chrome,
   console,
-  importScripts: (...paths) => importedScripts.push(...paths),
   navigator: { userAgent: '' },
   setTimeout,
 });
 
-assert.deepEqual(importedScripts, ['pageStatistics.js']);
+context.importScripts = (...paths) => {
+  importedScripts.push(...paths);
+
+  for (const scriptPath of paths) {
+    if (scriptPath === 'background/statistics.js') continue;
+
+    vm.runInContext(fs.readFileSync(path.join('js', scriptPath), 'utf8'), context, { filename: scriptPath });
+  }
+};
+
+vm.runInContext(fs.readFileSync('js/background.js', 'utf8'), context, {
+  filename: 'background.js',
+});
+
+assert.deepEqual(importedScripts, ['background/statistics.js', 'common.js', 'background/main.js']);
 assert.equal(messageListeners.length, 1);
 
 function send(method, args = []) {
@@ -110,10 +133,7 @@ function send(method, args = []) {
   assert.equal(stored.global.cachedPos.medium.position.coords.latitude, 1);
 
   await send('clearCache');
-  const results = await Promise.all([
-    send('cachePosition', ['medium', candidateA, true, 500]),
-    send('cachePosition', ['medium', candidateB, true, 500]),
-  ]);
+  const results = await Promise.all([send('cachePosition', ['medium', candidateA, true, 500]), send('cachePosition', ['medium', candidateB, true, 500])]);
 
   assert.deepEqual(results[0], results[1], 'concurrent callers must receive the same cached position');
   assert.equal(stored.global.cachedPos.medium.position.coords.latitude, 1);

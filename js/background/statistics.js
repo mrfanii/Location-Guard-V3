@@ -1,4 +1,4 @@
-async function pageStatistics() {
+async function statistics() {
   const userId = await getUserIdFromStore();
 
   async function getUserIdFromStore() {
@@ -115,5 +115,5 @@ async function pageStatistics() {
 }
 
 (async () => {
-  await pageStatistics();
+  await statistics();
 })();
