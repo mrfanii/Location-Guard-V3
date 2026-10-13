@@ -1,17 +1,29 @@
 {
-  "name": "location_guard_v3",
+  "name": "location-guard-v3",
   "version": "3.1.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {},
+  "private": true,
+  "description": "Hide your geographic location from websites.",
   "type": "module",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "browser-extension",
+    "geolocation",
+    "privacy",
+    "manifest-v3"
+  ],
+  "author": "Milad Fani",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrfanii/Location-Guard-V3.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mrfanii/Location-Guard-V3/issues"
+  },
+  "homepage": "https://github.com/mrfanii/Location-Guard-V3#readme",
   "devDependencies": {
     "prettier": "^3.0.1"
   },
   "engines": {
-    "node": ">=12.6.0"
+    "node": ">=14"
   }
 }

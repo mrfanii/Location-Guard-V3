@@ -13,6 +13,7 @@
     "service_worker": "js/background.js"
   },
   "description": "Hide your geographic location from websites.",
+  "homepage_url": "https://github.com/mrfanii/Location-Guard-V3",
   "icons": {
     "128": "images/pin_128.png"
   },

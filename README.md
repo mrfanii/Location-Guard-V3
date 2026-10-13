@@ -2,15 +2,16 @@
 
 **Location Guard** is a browser extension that allows to protect your location
 while using location-aware websites, by adding controlled noise to it.
-It supports the followng browsers:
+It supports the following browsers:
 
-* Google Chrome / Chromium ([install](https://chrome.google.com/webstore/detail/location-guard/cfohepagpmnodfdmjliccbbigdkfcgia))
-* Mozilla Firefox ([install](https://addons.mozilla.org/firefox/addon/location-guard/))
-* Microsoft Edge ([install](https://microsoftedge.microsoft.com/addons/detail/location-guard/hbgdpjpeeodeojjbeenfnpnldhahleoo))
-* Opera ([install](https://chrome.google.com/webstore/detail/location-guard/cfohepagpmnodfdmjliccbbigdkfcgia))
+- Google Chrome / Chromium ([install](https://chromewebstore.google.com/detail/location-guard-v3/hhnhplojcganfmfimkeboiipphklcbih))
+- Mozilla Firefox ([install](https://addons.mozilla.org/firefox/addon/location-guard/))
+- Microsoft Edge ([install](https://microsoftedge.microsoft.com/addons/detail/location-guard/hbgdpjpeeodeojjbeenfnpnldhahleoo))
+- Opera ([install](https://chromewebstore.google.com/detail/location-guard-v3/hhnhplojcganfmfimkeboiipphklcbih))
 
-Location Guard is available under either the [MIT/X11](https://opensource.org/licenses/mit-license.php)
-or the [CeCILL-B](http://www.cecill.info/licences.fr.html) license.
+This Manifest V3 fork is maintained by [Milad Fani](https://github.com/mrfanii) and is based on the
+[original Location Guard project](https://github.com/chatziko/location-guard) by Kostas Chatzikokolakis and contributors.
+It is distributed under the [MIT License](LICENSE), as permitted by the original project's dual MIT/X11 or CeCILL-B licensing.
 
 ## Frequently Asked Questions
 
@@ -30,9 +31,9 @@ the website.
 
 To see Location Guard in action use [this demo](https://browserleaks.com/geo), a
 [geolocalized weather forecast](https://darksky.net/), or go to [Google
-Maps](https://www.google.com/maps) and press the ![](src/images/gmaps_dot.png)
+Maps](https://www.google.com/maps) and press the ![](images/gmaps_dot.png)
 button. When the website asks for your location you will see the the
-![](src/images/pin_19.png) icon in the address bar (which also provides
+![](images/pin_19.png) icon in the address bar (which also provides
 configuration options).
 
 ### What kind of privacy does Location Guard provide?
@@ -59,7 +60,7 @@ service provided by the website less useful.
 
 By default all websites use the "medium" level (this can be changed from the
 extension's options). You can select a different level for a specific website
-using the ![](src/images/pin_19.png) icon. For instance, you could select
+using the ![](images/pin_19.png) icon. For instance, you could select
 a lower privacy level for websites that need an accurate location (eg. maps),
 and a higher one for websites that only need approximate information (eg.
 weather forecast).
@@ -135,7 +136,7 @@ real one. The cache period can be configured from the extension's options
 
 Location Guard is a product of research carried out at the Ecole Polytechnique of Paris,
 CNRS and Inria. It is based on work by [Miguel Andrés](http://www.lix.polytechnique.fr/~mandres),
-[Nicolás Bordenabe](http://http://www.nbordenabe.me//),
+[Nicolás Bordenabe](https://www.nbordenabe.me/),
 [Kostas Chatzikokolakis](https://www.chatzi.org/),
 [Catuscia Palamidessi](http://www.lix.polytechnique.fr/~catuscia/) and
 [Marco Stronati](http://www.stronati.org/).

@@ -545,7 +545,7 @@
       location.href = 'faq.html#' + $(e.target).attr('faq');
     });
     $('.reportIssue').click(function (e) {
-      window.open('https://github.com/chatziko/location-guard/issues', '_blank');
+      window.open('https://github.com/mrfanii/Location-Guard-V3/issues', '_blank');
     });
 
     $(document).on('click', '#levelMapCurrentPos', showCurrentPosition);
