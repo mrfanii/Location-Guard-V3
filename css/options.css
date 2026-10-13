@@ -68,6 +68,21 @@
 .map-popup {
 	font-size: 1.2em;
 }
+.fixed-pos-bookmarks {
+	flex: 0 0 auto;
+	margin: 0 !important;
+}
+.fixed-pos-bookmarks .ui-controlgroup {
+	margin-bottom: 0;
+}
+.bookmark-message {
+	min-height: 1.2em;
+	margin: 0.35em 0 0;
+	font-size: small;
+}
+.bookmark-message.error {
+	color: #b12222;
+}
 .popup-location-btn {
 	width: 1.2em;
 	height: 1.2em;

@@ -80,7 +80,7 @@ This offers the highest privacy, since the reported location is completely
 independent from the real one, at the cost of very low accuracy.
 
 You can modify the fixed location from the extension's options (Fixed Location
-tab).
+tab). Frequently used locations can be saved there and selected again later.
 
 When using a fixed location, the browser's geolocation is not performed at all.
 This offers better privacy, since the list of wifi access points is not
@@ -183,4 +183,3 @@ of Nicolas Bordenabe.
 * **Constructing elastic distinguishability metrics for location privacy**.  
   K. Chatzikokolakis, C. Palamidessi and M. Stronati.  
   _PETS'15 / PoPETs_, De Gruyter Open, 2015(2): 156-170, 2015. [[report](http://arxiv.org/abs/1503.00756)]
-

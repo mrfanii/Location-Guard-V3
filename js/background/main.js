@@ -69,6 +69,95 @@
     });
   });
 
+  function normalizeFixedPosition(position) {
+    if (!position) return null;
+
+    const latitude = Number(position.latitude);
+    const longitude = Number(position.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+
+    return { latitude, longitude };
+  }
+
+  function newFixedPositionBookmarkId(bookmarks) {
+    var id;
+    do {
+      id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    } while (
+      bookmarks.some(function (bookmark) {
+        return bookmark.id == id;
+      })
+    );
+    return id;
+  }
+
+  Browser.rpc.register('upsertFixedPositionBookmark', function (id, name, position) {
+    return mutateStorage(function (st) {
+      const normalizedName = String(name || '')
+        .trim()
+        .slice(0, 80);
+      const normalizedPosition = normalizeFixedPosition(position);
+      st.savedFixedPositions = Array.isArray(st.savedFixedPositions) ? st.savedFixedPositions : [];
+
+      if (!normalizedName) return { error: 'Enter a name for this location.' };
+      if (!normalizedPosition) return { error: 'The selected location is invalid.' };
+
+      const duplicate = st.savedFixedPositions.find(function (bookmark) {
+        return bookmark.id != id && String(bookmark.name || '').toLowerCase() == normalizedName.toLowerCase();
+      });
+      if (duplicate) return { error: 'A saved location with this name already exists.' };
+
+      var bookmark;
+      if (id) {
+        bookmark = st.savedFixedPositions.find(function (item) {
+          return item.id == id;
+        });
+        if (!bookmark) return { error: 'The selected saved location no longer exists.' };
+        bookmark.name = normalizedName;
+        bookmark.latitude = normalizedPosition.latitude;
+        bookmark.longitude = normalizedPosition.longitude;
+      } else {
+        bookmark = {
+          id: newFixedPositionBookmarkId(st.savedFixedPositions),
+          name: normalizedName,
+          latitude: normalizedPosition.latitude,
+          longitude: normalizedPosition.longitude,
+        };
+        st.savedFixedPositions.push(bookmark);
+      }
+
+      st.fixedPos = normalizedPosition;
+      return { bookmark, bookmarks: st.savedFixedPositions };
+    });
+  });
+
+  Browser.rpc.register('activateFixedPositionBookmark', function (id) {
+    return mutateStorage(function (st) {
+      st.savedFixedPositions = Array.isArray(st.savedFixedPositions) ? st.savedFixedPositions : [];
+      const bookmark = st.savedFixedPositions.find(function (item) {
+        return item.id == id;
+      });
+      if (!bookmark) return { error: 'The selected saved location no longer exists.' };
+
+      st.fixedPos = { latitude: bookmark.latitude, longitude: bookmark.longitude };
+      return { bookmark, position: st.fixedPos };
+    });
+  });
+
+  Browser.rpc.register('deleteFixedPositionBookmark', function (id) {
+    return mutateStorage(function (st) {
+      st.savedFixedPositions = Array.isArray(st.savedFixedPositions) ? st.savedFixedPositions : [];
+      const index = st.savedFixedPositions.findIndex(function (bookmark) {
+        return bookmark.id == id;
+      });
+      if (index < 0) return { error: 'The selected saved location no longer exists.' };
+
+      st.savedFixedPositions.splice(index, 1);
+      return { bookmarks: st.savedFixedPositions };
+    });
+  });
+
   Browser.rpc.register('clearCache', function () {
     return mutateStorage(function (st) {
       st.cachedPos = {};

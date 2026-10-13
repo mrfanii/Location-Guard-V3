@@ -103,6 +103,26 @@
       <div role="main" class="ui-content no-space">
         <div id="fixedPosMap" class="flex"></div>
 
+        <div id="fixedPosBookmarks" class="fixed-pos-bookmarks" data-role="collapsible" data-mini="true">
+          <h2>Saved locations</h2>
+
+          <label for="savedFixedPositions">Saved location</label>
+          <select id="savedFixedPositions">
+            <option value="">Select a saved location...</option>
+          </select>
+
+          <label for="fixedPosBookmarkName">Name</label>
+          <input id="fixedPosBookmarkName" type="text" maxlength="80" autocomplete="off" placeholder="For example: Home" />
+
+          <div data-role="controlgroup" data-type="horizontal" data-mini="true">
+            <button id="saveFixedPosBookmark" class="ui-btn">Save new</button>
+            <button id="updateFixedPosBookmark" class="ui-btn" disabled>Update</button>
+            <button id="deleteFixedPosBookmark" class="ui-btn" disabled>Delete</button>
+          </div>
+
+          <p id="fixedPosBookmarkMessage" class="bookmark-message" role="status" aria-live="polite"></p>
+        </div>
+
         <div data-role="controlgroup" class="no-space">
           <label>
             <input id="fixedPosNoAPI" type="checkbox" />Fixed location disables geolocation

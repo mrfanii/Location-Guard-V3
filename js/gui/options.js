@@ -14,6 +14,8 @@
   const geocoderUrl = 'https://api.openrouteservice.org/geocode';
 
   var levelMap, fixedPosMap;
+  var savedFixedPositions = [];
+  var selectedFixedPositionBookmarkId = '';
   var epsilon;
   var activeLevel = 'medium';
   var inited = {};
@@ -235,6 +237,8 @@
           this.collapse(); // close the geocoder search
         })
         .addTo(fixedPosMap);
+
+    renderFixedPositionBookmarks(st.savedFixedPositions);
   }
 
   async function saveFixedPos(latlng) {
@@ -245,6 +249,127 @@
 
     Browser.log('saving fixed position', position);
     await Browser.rpc.call(null, 'saveFixedPos', [position]);
+  }
+
+  function setFixedPositionBookmarkMessage(message, isError) {
+    $('#fixedPosBookmarkMessage')
+      .text(message || '')
+      .toggleClass('error', !!isError);
+  }
+
+  function setFixedPositionBookmarkButtons(enabled) {
+    $('#updateFixedPosBookmark, #deleteFixedPosBookmark').prop('disabled', !enabled).attr('aria-disabled', String(!enabled)).toggleClass('ui-state-disabled', !enabled);
+  }
+
+  function renderFixedPositionBookmarks(bookmarks, selectedId) {
+    savedFixedPositions = Array.isArray(bookmarks) ? bookmarks : [];
+    selectedId = selectedId || selectedFixedPositionBookmarkId;
+
+    const selected = savedFixedPositions.find(function (bookmark) {
+      return bookmark.id == selectedId;
+    });
+    selectedFixedPositionBookmarkId = selected ? selected.id : '';
+
+    const select = $('#savedFixedPositions');
+    select.find('option:not(:first)').remove();
+    savedFixedPositions
+      .slice()
+      .sort(function (left, right) {
+        return left.name.localeCompare(right.name);
+      })
+      .forEach(function (bookmark) {
+        select.append($('<option>').val(bookmark.id).text(bookmark.name));
+      });
+
+    select.val(selectedFixedPositionBookmarkId).selectmenu('refresh');
+    $('#fixedPosBookmarkName').val(selected ? selected.name : '');
+    setFixedPositionBookmarkButtons(!!selected);
+  }
+
+  function currentFixedPosition() {
+    const latlng = fixedPosMap.marker.getLatLng().wrap();
+    return { latitude: latlng.lat, longitude: latlng.lng };
+  }
+
+  function showFixedPositionOnMap(position) {
+    const latlng = L.latLng(position.latitude, position.longitude);
+    fixedPosMap.closePopup();
+    fixedPosMap.invalidateSize();
+    fixedPosMap.marker.setLatLng(latlng);
+    fixedPosMap.setView(latlng, fixedPosMap.getZoom(), { animate: false });
+  }
+
+  async function upsertFixedPositionBookmark(updateSelected) {
+    const id = updateSelected ? selectedFixedPositionBookmarkId : null;
+    if (updateSelected && !id) return;
+
+    const result = await Browser.rpc.call(null, 'upsertFixedPositionBookmark', [id, $('#fixedPosBookmarkName').val(), currentFixedPosition()]);
+    if (result.error) {
+      setFixedPositionBookmarkMessage(result.error, true);
+      return;
+    }
+
+    renderFixedPositionBookmarks(result.bookmarks, result.bookmark.id);
+    setFixedPositionBookmarkMessage(updateSelected ? 'Saved location updated.' : 'Location saved.');
+  }
+
+  async function activateFixedPositionBookmark() {
+    const id = $('#savedFixedPositions').val();
+    setFixedPositionBookmarkMessage('');
+
+    if (!id) {
+      selectedFixedPositionBookmarkId = '';
+      $('#fixedPosBookmarkName').val('');
+      setFixedPositionBookmarkButtons(false);
+      return;
+    }
+
+    const selected = savedFixedPositions.find(function (bookmark) {
+      return bookmark.id == id;
+    });
+    if (!selected) {
+      const st = await Browser.storage.get();
+      renderFixedPositionBookmarks(st.savedFixedPositions);
+      setFixedPositionBookmarkMessage('The selected saved location no longer exists.', true);
+      return;
+    }
+
+    const activation = Browser.rpc.call(null, 'activateFixedPositionBookmark', [id]);
+    selectedFixedPositionBookmarkId = selected.id;
+    $('#fixedPosBookmarkName').val(selected.name);
+    setFixedPositionBookmarkButtons(true);
+    showFixedPositionOnMap(selected);
+
+    const result = await activation;
+    if (!result || result.error) {
+      const st = await Browser.storage.get();
+      renderFixedPositionBookmarks(st.savedFixedPositions);
+      showFixedPositionOnMap(st.fixedPos);
+      setFixedPositionBookmarkMessage(result ? result.error : 'Could not activate the saved location.', true);
+      return;
+    }
+
+    showFixedPositionOnMap(result.position);
+    setFixedPositionBookmarkMessage('Using saved location: ' + result.bookmark.name);
+  }
+
+  async function deleteFixedPositionBookmark() {
+    if (!selectedFixedPositionBookmarkId) return;
+
+    const selected = savedFixedPositions.find(function (bookmark) {
+      return bookmark.id == selectedFixedPositionBookmarkId;
+    });
+    if (!selected || !window.confirm('Delete the saved location "' + selected.name + '"?')) return;
+
+    const result = await Browser.rpc.call(null, 'deleteFixedPositionBookmark', [selectedFixedPositionBookmarkId]);
+    if (result.error) {
+      setFixedPositionBookmarkMessage(result.error, true);
+      return;
+    }
+
+    selectedFixedPositionBookmarkId = '';
+    renderFixedPositionBookmarks(result.bookmarks);
+    setFixedPositionBookmarkMessage('Saved location deleted.');
   }
 
   async function showLevelInfo() {
@@ -434,6 +559,14 @@
 
     $('#options input, #options select').change(saveOptions);
     $('#fixedPosNoAPI').change(saveFixedPosNoAPI);
+    $('#savedFixedPositions').change(activateFixedPositionBookmark);
+    $('#saveFixedPosBookmark').click(function () {
+      upsertFixedPositionBookmark(false);
+    });
+    $('#updateFixedPosBookmark').click(function () {
+      upsertFixedPositionBookmark(true);
+    });
+    $('#deleteFixedPosBookmark').click(deleteFixedPositionBookmark);
 
     $('#restoreDefaults').click(restoreDefaults);
     $('#deleteCache').click(deleteCache);

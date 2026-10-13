@@ -16,6 +16,50 @@
 
   var url;
 
+  function samePosition(left, right) {
+    return left && right && Number(left.latitude) === Number(right.latitude) && Number(left.longitude) === Number(right.longitude);
+  }
+
+  function showSavedFixedPositions(st, level, callUrl) {
+    const bookmarks = Array.isArray(st.savedFixedPositions) ? st.savedFixedPositions : [];
+    const show = !!callUrl && !st.paused && level == 'fixed' && bookmarks.length > 0;
+    $('#savedFixedPositionItem').toggle(show);
+    if (!show) return;
+
+    const active = bookmarks.find(function (bookmark) {
+      return samePosition(bookmark, st.fixedPos);
+    });
+    $('#setFixedPosition b').text(active ? active.name : 'Choose saved location');
+
+    const choices = $('#savedFixedPositionChoices');
+    bookmarks
+      .slice()
+      .sort(function (left, right) {
+        return left.name.localeCompare(right.name);
+      })
+      .forEach(function (bookmark, index) {
+        const radioId = 'savedFixedPosition-' + index;
+        const input = $('<input>').attr('type', 'radio').attr('name', 'savedFixedPosition').attr('id', radioId).val(bookmark.id);
+        if (active && bookmark.id == active.id) input.attr('checked', true);
+
+        choices.append(input).append($('<label>').attr('for', radioId).text(bookmark.name));
+      });
+  }
+
+  async function activateSavedFixedPosition() {
+    const id = $(this).val();
+    if (!id) return;
+
+    const result = await Browser.rpc.call(null, 'activateFixedPositionBookmark', [id]);
+    if (!result || result.error) {
+      window.alert(result ? result.error : 'Could not activate the saved location.');
+      return;
+    }
+
+    await Browser.gui.refreshAllIcons();
+    Browser.gui.closePopup();
+  }
+
   async function doAction() {
     var action = $(this).attr('id');
 
@@ -49,6 +93,10 @@
         $('#levels').popup('open');
         break;
 
+      case 'setFixedPosition':
+        $('#savedFixedPositionsPopup').popup('open');
+        break;
+
       default: // set level
         if (!url) throw 'no url'; // just to be sure
 
@@ -70,6 +118,8 @@
     const st = await Browser.storage.get();
     Browser.log('popup: callUrl', callUrl, 'settings', st);
 
+    var level;
+
     // we don't have a url if we are in chrome (browser action, visible in
     // all tabs), and the active tab has no content-script running (eg. new
     // tab page)
@@ -77,7 +127,7 @@
     if (callUrl) {
       url = callUrl;
       var domain = Util.extractDomain(url);
-      var level = st.domainLevel[domain] || st.defaultLevel;
+      level = st.domainLevel[domain] || st.defaultLevel;
 
       $('#title').text(
         st.paused ? 'Location Guard is paused' : level == 'real' ? 'Using your real location' : level == 'fixed' ? 'Using a fixed location' : 'Privacy level: ' + level,
@@ -95,8 +145,10 @@
 
     $('#setLevel').toggle(callUrl && !st.paused);
     $('#hideIcon').toggle(callUrl && !st.paused && !Browser.capabilities.permanentIcon()); // hiding the icon only works with page action (not browser action)
+    showSavedFixedPositions(st, level, callUrl);
 
-    $('a, input').on('click', doAction);
+    $('a, input[name="level"]').on('click', doAction);
+    $('input[name="savedFixedPosition"]').on('click', activateSavedFixedPosition);
 
     // we're ready, init
     $.mobile.initializePage();

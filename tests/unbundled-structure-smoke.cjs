@@ -44,4 +44,22 @@ for (const htmlFile of ['demo.html', 'faq.html', 'options.html', 'popup.html']) 
   }
 }
 
+const optionsHtml = fs.readFileSync('options.html', 'utf8');
+for (const id of [
+  'fixedPosBookmarks',
+  'savedFixedPositions',
+  'fixedPosBookmarkName',
+  'saveFixedPosBookmark',
+  'updateFixedPosBookmark',
+  'deleteFixedPosBookmark',
+  'fixedPosBookmarkMessage',
+]) {
+  assert.match(optionsHtml, new RegExp(`id="${id}"`), `options.html is missing #${id}`);
+}
+
+const popupHtml = fs.readFileSync('popup.html', 'utf8');
+for (const id of ['savedFixedPositionItem', 'setFixedPosition', 'savedFixedPositionsPopup', 'savedFixedPositionChoices']) {
+  assert.match(popupHtml, new RegExp(`id="${id}"`), `popup.html is missing #${id}`);
+}
+
 console.log('unbundled structure smoke ok');

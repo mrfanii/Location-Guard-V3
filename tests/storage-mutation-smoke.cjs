@@ -26,6 +26,7 @@ let stored = {
 };
 
 function clone(value) {
+  if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value));
 }
 
@@ -137,6 +138,33 @@ function send(method, args = []) {
 
   assert.deepEqual(results[0], results[1], 'concurrent callers must receive the same cached position');
   assert.equal(stored.global.cachedPos.medium.position.coords.latitude, 1);
+
+  const invalid = await send('upsertFixedPositionBookmark', [null, 'Invalid', { latitude: 91, longitude: 0 }]);
+  assert.match(invalid.error, /invalid/);
+
+  const home = await send('upsertFixedPositionBookmark', [null, 'Home', { latitude: 35.7219, longitude: 51.3347 }]);
+  assert.equal(home.error, undefined);
+  assert.equal(stored.global.savedFixedPositions.length, 1, 'old storage must gain a bookmark list on first save');
+  assert.equal(stored.global.fixedPos.latitude, 35.7219);
+
+  const duplicate = await send('upsertFixedPositionBookmark', [null, 'home', { latitude: 1, longitude: 2 }]);
+  assert.match(duplicate.error, /already exists/);
+  assert.equal(stored.global.savedFixedPositions.length, 1);
+
+  const office = await send('upsertFixedPositionBookmark', [home.bookmark.id, 'Office', { latitude: 52.52, longitude: 13.405 }]);
+  assert.equal(office.bookmark.name, 'Office');
+  assert.equal(stored.global.savedFixedPositions[0].latitude, 52.52);
+
+  const activated = await send('activateFixedPositionBookmark', [home.bookmark.id]);
+  assert.deepEqual(clone(activated.position), { latitude: 52.52, longitude: 13.405 });
+  assert.deepEqual(stored.global.fixedPos, clone(activated.position));
+
+  const deleted = await send('deleteFixedPositionBookmark', [home.bookmark.id]);
+  assert.deepEqual(deleted.bookmarks, []);
+  assert.deepEqual(stored.global.fixedPos, clone(activated.position), 'deleting a bookmark must not change the active fixed position');
+
+  const restored = await send('restoreDefaults');
+  assert.deepEqual(clone(restored.savedFixedPositions), []);
   console.log('storage mutation smoke ok');
 })().catch((error) => {
   console.error(error);

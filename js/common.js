@@ -88,6 +88,7 @@ globalThis.LocationGuard = (function () {
           latitude: -4.448784,
           longitude: -171.24832,
         },
+        savedFixedPositions: [],
         fixedPosNoAPI: true,
         updateAccuracy: true,
         epsilon: 2,
